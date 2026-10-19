@@ -86,7 +86,10 @@ const gatewayPool: MySqlPool = {
   ): Promise<[T, FieldPacket[]]> => {
     const query = typeof sql === 'string' ? sql : sql.sql;
     const parameters = values ?? (typeof sql === 'string' ? [] : sql.values ?? []);
-    const result = await gatewayRequest<T>('/execute', { sql: query, values: parameters });
+    const { result } = await gatewayRequest<{ result: T }>('/execute', {
+      sql: query,
+      values: parameters,
+    });
     return [result, []];
   },
 };
