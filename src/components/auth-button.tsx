@@ -38,6 +38,9 @@ export default function AuthButton({
   if (user) {
     return (
       <>
+        <Button onClick={handleLogout} variant="outline">
+          Logout
+        </Button>
         {isStaffRole(user.role) && (
           <>
             <Button asChild variant="ghost">
@@ -62,9 +65,6 @@ export default function AuthButton({
             <Link href="/admin/users" onClick={onAction}>Team &amp; Access</Link>
           </Button>
         )}
-        <Button onClick={handleLogout} variant="outline">
-          Logout
-        </Button>
       </>
     );
   }

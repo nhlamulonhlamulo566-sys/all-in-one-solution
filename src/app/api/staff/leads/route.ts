@@ -12,7 +12,15 @@ interface LeadRow extends RowDataPacket {
   phone_number: string | null;
   service_name: string | null;
   message: string;
-  status: 'new' | 'contacted' | 'completed';
+  status: 'new' | 'in_progress' | 'resolved' | 'unresolved' | 'escalated';
+  resolution_note: string | null;
+  assigned_to: string | null;
+  read_by: string | null;
+  read_at: Date | null;
+  last_action_by: string | null;
+  last_action_type: 'read' | 'claimed' | 'updated' | null;
+  last_action_note: string | null;
+  last_action_at: Date | null;
   created_at: Date;
 }
 
@@ -32,10 +40,17 @@ export async function GET(request: Request) {
   try {
     const pool = getMySqlPool();
     const [rows] = await pool.execute<LeadRow[]>(
-      `SELECT request_id, request_type, full_name, email_address,
-              phone_number, service_name, message, status, created_at
-       FROM customer_requests
-       ORDER BY created_at DESC, request_id DESC
+      `SELECT r.request_id, r.request_type, r.full_name, r.email_address,
+              r.phone_number, r.service_name, r.message, r.status,
+              r.resolution_note, assigned.full_name AS assigned_to,
+              reader.full_name AS read_by, r.read_at,
+              actor.full_name AS last_action_by, r.last_action_type,
+              r.last_action_note, r.last_action_at, r.created_at
+       FROM customer_requests r
+       LEFT JOIN website_users assigned ON assigned.user_id = r.assigned_to_user_id
+       LEFT JOIN website_users reader ON reader.user_id = r.read_by_user_id
+       LEFT JOIN website_users actor ON actor.user_id = r.last_action_by_user_id
+       ORDER BY r.created_at DESC, r.request_id DESC
        LIMIT 100`
     );
     const [countRows] = await pool.execute<CountRow[]>(

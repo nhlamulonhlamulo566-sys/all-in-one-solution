@@ -14,15 +14,29 @@ type ChatSession = {
   visitor_id: string;
   created_at: string;
   status: 'active' | 'closed';
+  handling_status: 'open' | 'in_progress' | 'resolved' | 'unresolved' | 'escalated';
+  resolution_note: string | null;
+  assigned_to: string | null;
+  read_by: string | null;
+  last_action_by: string | null;
+  last_action_type: 'read' | 'claimed' | 'updated' | null;
+  last_action_note: string | null;
   last_message: string | null;
   last_message_at: string | null;
 };
+
+type ChatWorkflowStatus = ChatSession['handling_status'];
+type ChatWorkflowUpdate =
+  | { action: 'read' }
+  | { action: 'claim' }
+  | { action: 'update'; status: ChatWorkflowStatus; note: string };
 
 type ChatMessage = {
   message_id: string;
   sender_id: string;
   sender_role: 'visitor' | 'staff';
   message_text: string;
+  sender_name: string | null;
   created_at: string;
 };
 
@@ -34,6 +48,9 @@ export default function ChatDashboard() {
   const [reply, setReply] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [draftStatus, setDraftStatus] = useState<ChatWorkflowStatus | null>(null);
+  const [draftNote, setDraftNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadSessions = useCallback(async (signal?: AbortSignal) => {
@@ -64,6 +81,30 @@ export default function ChatDashboard() {
       if (!signal?.aborted) setIsLoading(false);
     }
   }, [user]);
+
+  const updateWorkflow = useCallback(async (
+    sessionId: string,
+    update: ChatWorkflowUpdate
+  ) => {
+    setIsUpdating(true);
+    try {
+      const response = await fetch(
+        `/api/staff/chats/${encodeURIComponent(sessionId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(update),
+        }
+      );
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(body.error || 'Unable to update this chat.');
+      await loadSessions();
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Unable to update this chat.');
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [loadSessions]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -115,6 +156,14 @@ export default function ChatDashboard() {
       window.clearInterval(interval);
     };
   }, [loadMessages, selectedSessionId]);
+
+  useEffect(() => {
+    if (selectedSessionId) {
+      setDraftStatus(null);
+      setDraftNote(null);
+      void updateWorkflow(selectedSessionId, { action: 'read' });
+    }
+  }, [selectedSessionId, updateWorkflow]);
 
   const sendReply = async (event: FormEvent) => {
     event.preventDefault();
@@ -187,6 +236,10 @@ export default function ChatDashboard() {
                       <p className="truncate text-sm text-muted-foreground">
                         {session.last_message || 'Started a chat'}
                       </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {session.handling_status.replaceAll('_', ' ')}
+                        {session.assigned_to ? ` · ${session.assigned_to}` : ' · Unassigned'}
+                      </p>
                     </div>
                   </div>
                   <p className="mt-2 text-right text-xs text-muted-foreground">
@@ -206,8 +259,65 @@ export default function ChatDashboard() {
         <Card className="flex min-h-[28rem] flex-col">
           <CardContent className="flex flex-1 flex-col p-4">
             <p className="mb-4 border-b pb-3 text-sm text-muted-foreground">
-              Session {selectedSession.session_id} · {selectedSession.status}
+              Session {selectedSession.session_id} · {selectedSession.handling_status}
             </p>
+            <div className="mb-4 space-y-3 rounded-md border p-3">
+              <p className="text-sm text-muted-foreground">
+                Assigned to: <span className="font-medium text-foreground">{selectedSession.assigned_to || 'Unassigned'}</span>
+                {' · '}Read by: <span className="font-medium text-foreground">{selectedSession.read_by || 'Not marked read'}</span>
+                {selectedSession.last_action_by && (
+                  <> · Last action by <span className="font-medium text-foreground">{selectedSession.last_action_by}</span>
+                    {selectedSession.last_action_type === 'read' ? ' (read)' : ''}
+                  </>
+                )}
+              </p>
+              {selectedSession.last_action_note && (
+                <p className="whitespace-pre-line text-sm text-muted-foreground">
+                  Latest update: {selectedSession.last_action_note}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isUpdating}
+                  onClick={() => void updateWorkflow(selectedSession.session_id, { action: 'claim' })}
+                >
+                  Take ownership
+                </Button>
+                <select
+                  aria-label="Chat outcome"
+                  value={draftStatus ?? selectedSession.handling_status}
+                  onChange={(event) => setDraftStatus(event.target.value as ChatWorkflowStatus)}
+                  className="rounded-md border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="open">Open</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="unresolved">Unable to resolve</option>
+                  <option value="escalated">Escalated</option>
+                </select>
+                <Button
+                  type="button"
+                  disabled={isUpdating}
+                  onClick={() => void updateWorkflow(selectedSession.session_id, {
+                    action: 'update',
+                    status: draftStatus ?? selectedSession.handling_status,
+                    note: draftNote ?? selectedSession.resolution_note ?? '',
+                  })}
+                >
+                  Save outcome
+                </Button>
+              </div>
+              <textarea
+                aria-label="Chat resolution or escalation note"
+                value={draftNote ?? selectedSession.resolution_note ?? ''}
+                onChange={(event) => setDraftNote(event.target.value)}
+                maxLength={2000}
+                placeholder="Add resolution details or explain why it needs escalation..."
+                className="min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
+              />
+            </div>
             <div className="flex-1 space-y-3 overflow-y-auto">
               {messages.length === 0 && (
                 <p className="py-8 text-center text-sm text-muted-foreground">
@@ -227,6 +337,11 @@ export default function ChatDashboard() {
                     }`}
                   >
                     <p className="whitespace-pre-wrap break-words">{message.message_text}</p>
+                    {message.sender_role === 'staff' && message.sender_name && (
+                      <p className="mt-1 text-[10px] font-semibold opacity-80">
+                        {message.sender_name}
+                      </p>
+                    )}
                     <p className="mt-1 text-right text-[10px] opacity-70">
                       {formatDistanceToNow(parseISO(message.created_at), { addSuffix: true })}
                     </p>

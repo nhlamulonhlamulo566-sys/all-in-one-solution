@@ -14,7 +14,7 @@ export default function Header() {
         >
           <Logo />
         </Link>
-        <nav className="hidden md:flex items-center gap-2">
+        <nav className="hidden md:flex flex-wrap items-center justify-end gap-2">
           <Button asChild variant="ghost">
             <Link href="/about">About Us</Link>
           </Button>

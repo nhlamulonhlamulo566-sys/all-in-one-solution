@@ -7,7 +7,16 @@ CREATE TABLE IF NOT EXISTS customer_requests (
   company_name VARCHAR(160) NULL,
   service_name VARCHAR(160) NULL,
   message TEXT NOT NULL,
-  status ENUM('new', 'contacted', 'completed') NOT NULL DEFAULT 'new',
+  status ENUM('new', 'in_progress', 'resolved', 'unresolved', 'escalated')
+    NOT NULL DEFAULT 'new',
+  assigned_to_user_id CHAR(36) NULL,
+  read_by_user_id CHAR(36) NULL,
+  read_at DATETIME NULL,
+  resolution_note TEXT NULL,
+  last_action_by_user_id CHAR(36) NULL,
+  last_action_type ENUM('read', 'claimed', 'updated') NULL,
+  last_action_note TEXT NULL,
+  last_action_at DATETIME NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ON UPDATE CURRENT_TIMESTAMP,
@@ -44,6 +53,21 @@ CREATE TABLE IF NOT EXISTS website_auth_sessions (
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS website_staff_activity (
+  activity_id CHAR(36) NOT NULL,
+  entity_type ENUM('request', 'chat') NOT NULL,
+  entity_id VARCHAR(128) NOT NULL,
+  staff_user_id CHAR(36) NOT NULL,
+  action ENUM('read', 'claimed', 'status', 'note') NOT NULL,
+  details TEXT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (activity_id),
+  KEY idx_website_staff_activity_entity (entity_type, entity_id, created_at),
+  KEY idx_website_staff_activity_staff (staff_user_id, created_at),
+  CONSTRAINT fk_website_staff_activity_user
+    FOREIGN KEY (staff_user_id) REFERENCES website_users (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS website_announcements (
   announcement_id VARCHAR(128) NOT NULL,
   title VARCHAR(200) NOT NULL,
@@ -60,6 +84,16 @@ CREATE TABLE IF NOT EXISTS website_chat_sessions (
   visitor_id CHAR(36) NOT NULL,
   visitor_token_hash CHAR(64) NOT NULL,
   status ENUM('active', 'closed') NOT NULL DEFAULT 'active',
+  handling_status ENUM('open', 'in_progress', 'resolved', 'unresolved', 'escalated')
+    NOT NULL DEFAULT 'open',
+  assigned_to_user_id CHAR(36) NULL,
+  read_by_user_id CHAR(36) NULL,
+  read_at DATETIME NULL,
+  resolution_note TEXT NULL,
+  last_action_by_user_id CHAR(36) NULL,
+  last_action_type ENUM('read', 'claimed', 'updated') NULL,
+  last_action_note TEXT NULL,
+  last_action_at DATETIME NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (session_id),
   KEY idx_website_chat_sessions_status_created (status, created_at),

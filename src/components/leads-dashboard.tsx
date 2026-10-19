@@ -42,9 +42,23 @@ type Lead = {
   phone_number: string | null;
   service_name: string | null;
   message: string;
-  status: 'new' | 'contacted' | 'completed';
+  status: 'new' | 'in_progress' | 'resolved' | 'unresolved' | 'escalated';
+  resolution_note: string | null;
+  assigned_to: string | null;
+  read_by: string | null;
+  read_at: string | null;
+  last_action_by: string | null;
+  last_action_type: 'read' | 'claimed' | 'updated' | null;
+  last_action_note: string | null;
+  last_action_at: string | null;
   created_at: string;
 };
+
+type WorkflowStatus = Lead['status'];
+type WorkflowUpdate =
+  | { action: 'read' }
+  | { action: 'claim' }
+  | { action: 'update'; status: WorkflowStatus; note: string };
 
 type ActivityRow = {
   day: string;
@@ -85,11 +99,18 @@ function StatCard({
   );
 }
 
-export default function LeadsDashboard() {
+export default function LeadsDashboard({
+  requestTypes,
+}: {
+  requestTypes?: Lead['request_type'][];
+}) {
   const { user } = useUser();
   const [snapshot, setSnapshot] = useState<LeadsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [workflowBusyId, setWorkflowBusyId] = useState<number | null>(null);
+  const [draftStatuses, setDraftStatuses] = useState<Record<number, WorkflowStatus>>({});
+  const [draftNotes, setDraftNotes] = useState<Record<number, string>>({});
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (!user) return;
@@ -116,6 +137,26 @@ export default function LeadsDashboard() {
       if (!signal?.aborted) setIsLoading(false);
     }
   }, [user]);
+
+  const updateWorkflow = async (requestId: number, update: WorkflowUpdate) => {
+    setWorkflowBusyId(requestId);
+    try {
+      const response = await fetch(`/api/staff/leads/${requestId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(update),
+      });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(body.error || 'Unable to update this request.');
+      await refresh();
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error ? updateError.message : 'Unable to update this request.'
+      );
+    } finally {
+      setWorkflowBusyId(null);
+    }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -198,6 +239,9 @@ export default function LeadsDashboard() {
   }
 
   const leads = snapshot?.leads ?? [];
+  const visibleLeads = requestTypes
+    ? leads.filter((lead) => requestTypes.includes(lead.request_type))
+    : leads;
   const total = counts.quote + counts.callback + counts.message;
 
   return (
@@ -285,7 +329,13 @@ export default function LeadsDashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
-            <CardTitle>Recent customer requests</CardTitle>
+            <CardTitle>
+              {requestTypes?.length === 1 && requestTypes[0] === 'quote'
+                ? 'Quotation requests'
+                : requestTypes
+                  ? 'Contact and call-back submissions'
+                  : 'Recent customer requests'}
+            </CardTitle>
             <CardDescription className="mt-2">
               Contact details and what each customer is asking for.
             </CardDescription>
@@ -298,7 +348,7 @@ export default function LeadsDashboard() {
           </Link>
         </CardHeader>
         <CardContent>
-          {leads.length === 0 ? (
+          {visibleLeads.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center">
               <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
               <p className="font-medium">Your lead inbox is ready</p>
@@ -309,7 +359,7 @@ export default function LeadsDashboard() {
             </div>
           ) : (
             <div className="divide-y">
-              {leads.map((lead) => {
+              {visibleLeads.map((lead) => {
                 const label =
                   lead.request_type === 'quote'
                     ? 'Quotation'
@@ -331,7 +381,7 @@ export default function LeadsDashboard() {
                           <Badge variant="outline">{lead.service_name}</Badge>
                         )}
                         <Badge variant="outline" className="capitalize">
-                          {lead.status}
+                          {lead.status.replaceAll('_', ' ')}
                         </Badge>
                       </div>
                       <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
@@ -366,6 +416,80 @@ export default function LeadsDashboard() {
                           {lead.message}
                         </p>
                       )}
+                      <div className="space-y-2 rounded-md border p-3">
+                        <p className="text-xs text-muted-foreground">
+                          Assigned to: <span className="font-medium text-foreground">{lead.assigned_to || 'Unassigned'}</span>
+                          {' · '}Read by: <span className="font-medium text-foreground">{lead.read_by || 'Not marked read'}</span>
+                          {lead.read_at && <> at {format(parseISO(lead.read_at), 'MMM d, h:mm a')}</>}
+                          {lead.last_action_by && (
+                            <> · Last action by <span className="font-medium text-foreground">{lead.last_action_by}</span>
+                              {lead.last_action_type === 'read' ? ' (read)' : ''}
+                              {lead.last_action_at && <> at {format(parseISO(lead.last_action_at), 'MMM d, h:mm a')}</>}
+                            </>
+                          )}
+                        </p>
+                        {lead.last_action_note && (
+                          <p className="whitespace-pre-line text-sm text-muted-foreground">
+                            Latest update: {lead.last_action_note}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={workflowBusyId === lead.request_id}
+                            onClick={() => void updateWorkflow(lead.request_id, { action: 'read' })}
+                            className="rounded-md border px-3 py-1.5 text-sm hover:bg-secondary disabled:opacity-50"
+                          >
+                            Mark read
+                          </button>
+                          <button
+                            type="button"
+                            disabled={workflowBusyId === lead.request_id}
+                            onClick={() => void updateWorkflow(lead.request_id, { action: 'claim' })}
+                            className="rounded-md border px-3 py-1.5 text-sm hover:bg-secondary disabled:opacity-50"
+                          >
+                            Take ownership
+                          </button>
+                          <select
+                            aria-label={`Status for ${lead.full_name}`}
+                            value={draftStatuses[lead.request_id] ?? lead.status}
+                            onChange={(event) => setDraftStatuses((current) => ({
+                              ...current,
+                              [lead.request_id]: event.target.value as WorkflowStatus,
+                            }))}
+                            className="rounded-md border bg-background px-3 py-1.5 text-sm"
+                          >
+                            <option value="new">New</option>
+                            <option value="in_progress">In progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="unresolved">Unable to resolve</option>
+                            <option value="escalated">Escalated</option>
+                          </select>
+                          <button
+                            type="button"
+                            disabled={workflowBusyId === lead.request_id}
+                            onClick={() => void updateWorkflow(lead.request_id, {
+                              action: 'update',
+                              status: draftStatuses[lead.request_id] ?? lead.status,
+                              note: draftNotes[lead.request_id] ?? lead.resolution_note ?? '',
+                            })}
+                            className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                          >
+                            Save outcome
+                          </button>
+                        </div>
+                        <textarea
+                          aria-label={`Resolution or escalation note for ${lead.full_name}`}
+                          value={draftNotes[lead.request_id] ?? lead.resolution_note ?? ''}
+                          onChange={(event) => setDraftNotes((current) => ({
+                            ...current,
+                            [lead.request_id]: event.target.value,
+                          }))}
+                          maxLength={2000}
+                          placeholder="Add resolution details or explain why it needs escalation..."
+                          className="min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                        />
+                      </div>
                     </div>
                     <time className="shrink-0 text-sm text-muted-foreground">
                       {format(submittedAt, 'MMM d, yyyy · h:mm a')}
