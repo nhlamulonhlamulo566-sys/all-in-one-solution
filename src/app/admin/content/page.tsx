@@ -13,7 +13,7 @@ export default function AdminContentPage() {
             Public page content
           </h1>
           <p className="max-w-2xl text-muted-foreground">
-            Manage the leadership heading and introduction displayed on the About page.
+            Manage the About page introduction and the names, titles, and photos shown in its leadership section.
           </p>
         </header>
         <AboutContentEditor />
