@@ -6,6 +6,7 @@ import Footer from '@/components/footer';
 import { Inter as FontSans } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { AuthProvider } from '@/auth/provider';
+import SiteLiveChat from '@/components/site-live-chat';
 
 const fontSans = FontSans({
   subsets: ['latin'],
@@ -43,6 +44,7 @@ export default function RootLayout({
             <main className="flex-grow">{children}</main>
             <Footer />
           </div>
+          <SiteLiveChat />
           <Toaster />
         </AuthProvider>
       </body>

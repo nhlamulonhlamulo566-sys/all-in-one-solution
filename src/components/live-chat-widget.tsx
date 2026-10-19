@@ -25,7 +25,8 @@ type Message = {
 
 type ApiError = { error?: string };
 
-const AGENT_GREETING = 'Hi there! How can we help you today?';
+const AGENT_GREETING =
+  'Hi there! Send us your question and our team will reply here as soon as possible.';
 const TOKEN_STORAGE_KEY = 'chatVisitorToken';
 const SESSION_STORAGE_KEY = 'chatSessionId';
 
@@ -68,7 +69,7 @@ export default function LiveChatWidget() {
   }, []);
 
   useEffect(() => {
-    if (!visitorToken) return;
+    if (!visitorToken || !isOpen) return;
     const token = visitorToken;
     const controller = new AbortController();
 
@@ -106,7 +107,7 @@ export default function LiveChatWidget() {
 
     void restoreSession();
     return () => controller.abort();
-  }, [createSession, visitorToken]);
+  }, [createSession, isOpen, visitorToken]);
 
   const refreshMessages = useCallback(async (
     token: string,
@@ -128,7 +129,7 @@ export default function LiveChatWidget() {
   }, []);
 
   useEffect(() => {
-    if (!visitorToken || !sessionId) return;
+    if (!isOpen || !visitorToken || !sessionId) return;
     const controller = new AbortController();
     const refresh = () => {
       void refreshMessages(visitorToken, sessionId, controller.signal).catch(
@@ -149,7 +150,7 @@ export default function LiveChatWidget() {
       controller.abort();
       window.clearInterval(interval);
     };
-  }, [refreshMessages, sessionId, visitorToken]);
+  }, [isOpen, refreshMessages, sessionId, visitorToken]);
 
   const messages = [
     {
@@ -210,12 +211,11 @@ export default function LiveChatWidget() {
         )}
       >
         <Button
-          size="icon"
-          className="h-14 w-14 rounded-full shadow-lg sm:h-16 sm:w-16"
+          className="h-14 rounded-full px-5 shadow-lg sm:h-16"
           onClick={() => setIsOpen(true)}
-          aria-label="Open live chat"
         >
           <MessageSquare className="h-7 w-7 sm:h-8 sm:w-8" />
+          <span>Chat with us</span>
         </Button>
       </div>
 

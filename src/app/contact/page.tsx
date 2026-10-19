@@ -1,7 +1,6 @@
 import { Mail, Phone, Linkedin, Facebook, Youtube, Instagram, MapPin, Building2, Globe } from 'lucide-react';
 import ContactForm from '@/components/contact-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import LiveChatWidget from '@/components/live-chat-widget';
 
 const XIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -149,7 +148,6 @@ export default async function ContactPage({
           </div>
         </div>
       </section>
-      <LiveChatWidget />
     </>
   );
 }

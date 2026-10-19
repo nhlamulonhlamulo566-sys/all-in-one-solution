@@ -83,8 +83,11 @@ updates just for the role manager.
 
 Published announcements and visitor chat use MySQL. Anonymous chat sessions
 are owned by random visitor tokens; MySQL stores only their SHA-256 hashes.
-Staff chat and lead APIs require a valid MySQL session and a `staff`, `admin`,
-or `super_admin` MySQL role.
+The public site displays a floating “Chat with us” launcher on visitor pages;
+visitors can send questions without signing in, and staff can answer and manage
+those conversations at `/admin/chat`. Chat sessions are created when a visitor
+opens the widget. Staff chat and lead APIs require a valid MySQL session and a
+`staff`, `admin`, or `super_admin` MySQL role.
 
 AI FAQ answers and service descriptions use the server-side Gemini API; the
 API key is never sent to the browser.
