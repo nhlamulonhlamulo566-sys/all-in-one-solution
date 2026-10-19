@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -171,6 +171,177 @@ async function updateUserRole({ userId, role, adminId, adminRole }) {
   }
 }
 
+async function manageStaffChat({ action, sessionId, staffId, note = '' }) {
+  if (
+    !['accept', 'close'].includes(action)
+    || typeof sessionId !== 'string'
+    || typeof staffId !== 'string'
+    || typeof note !== 'string'
+    || note.length > 2000
+  ) {
+    return { status: 400, body: { error: 'Invalid live chat action.' } };
+  }
+
+  const connection = await pool.getConnection();
+  const lockName = `staff-chat-capacity:${staffId}`;
+  let lockAcquired = false;
+  let transactionStarted = false;
+
+  try {
+    if (action === 'accept') {
+      const [locks] = await connection.execute('SELECT GET_LOCK(?, 10) AS acquired', [lockName]);
+      if (Number(locks[0]?.acquired) !== 1) {
+        return { status: 503, body: { error: 'Could not reserve a chat slot. Please try again.' } };
+      }
+      lockAcquired = true;
+    }
+
+    await connection.beginTransaction();
+    transactionStarted = true;
+    const [sessions] = await connection.execute(
+      `SELECT session_id, status, assigned_to_user_id, created_at
+       FROM website_chat_sessions
+       WHERE session_id = ?
+       FOR UPDATE`,
+      [sessionId]
+    );
+    const session = sessions[0];
+    if (!session) {
+      await connection.rollback();
+      transactionStarted = false;
+      return { status: 404, body: { error: 'Chat session not found.' } };
+    }
+
+    if (action === 'accept') {
+      if (session.status !== 'active') {
+        await connection.rollback();
+        transactionStarted = false;
+        return { status: 409, body: { error: 'This chat is no longer waiting.' } };
+      }
+      if (session.assigned_to_user_id) {
+        await connection.rollback();
+        transactionStarted = false;
+        return {
+          status: session.assigned_to_user_id === staffId ? 200 : 409,
+          body: session.assigned_to_user_id === staffId
+            ? { ok: true }
+            : { error: 'Another staff member has accepted this chat.' },
+        };
+      }
+
+      const [queue] = await connection.execute(
+        `SELECT session_id
+         FROM website_chat_sessions
+         WHERE status = 'active' AND assigned_to_user_id IS NULL
+           AND (created_at < ? OR (created_at = ? AND session_id < ?))
+         ORDER BY created_at, session_id
+         LIMIT 1`,
+        [session.created_at, session.created_at, sessionId]
+      );
+      if (queue.length) {
+        await connection.rollback();
+        transactionStarted = false;
+        return { status: 409, body: { error: 'Please accept the next waiting chat in the queue.' } };
+      }
+
+      const [active] = await connection.execute(
+        `SELECT COUNT(*) AS active_count
+         FROM website_chat_sessions
+         WHERE assigned_to_user_id = ? AND status = 'active'`,
+        [staffId]
+      );
+      if (Number(active[0]?.active_count) >= 5) {
+        await connection.rollback();
+        transactionStarted = false;
+        return {
+          status: 409,
+          body: { error: 'You are already helping five clients. Close a resolved chat before accepting another.' },
+        };
+      }
+
+      const [staff] = await connection.execute(
+        'SELECT full_name FROM website_users WHERE user_id = ? LIMIT 1',
+        [staffId]
+      );
+      if (!staff[0]) {
+        await connection.rollback();
+        transactionStarted = false;
+        return { status: 401, body: { error: 'Your staff account is no longer available.' } };
+      }
+
+      await connection.execute(
+        `UPDATE website_chat_sessions
+         SET assigned_to_user_id = ?, handling_status = 'in_progress',
+             read_by_user_id = ?, read_at = CURRENT_TIMESTAMP,
+             last_action_by_user_id = ?, last_action_type = 'claimed',
+             last_action_note = NULL, last_action_at = CURRENT_TIMESTAMP
+         WHERE session_id = ?`,
+        [staffId, staffId, staffId, sessionId]
+      );
+      await connection.execute(
+        `INSERT INTO website_chat_messages
+           (message_id, session_id, sender_id, sender_role, message_text)
+         VALUES (?, ?, ?, 'staff', ?)`,
+        [
+          randomUUID(),
+          sessionId,
+          staffId,
+          `Hello, welcome to All In One Solution! My name is ${staff[0].full_name}. Thank you for getting in touch — how may I help you today?`,
+        ]
+      );
+      await connection.commit();
+      transactionStarted = false;
+      return {
+        status: 200,
+        body: { ok: true, activeChats: Number(active[0]?.active_count ?? 0) + 1, capacity: 5 },
+      };
+    }
+
+    if (session.status === 'closed') {
+      await connection.commit();
+      transactionStarted = false;
+      return { status: 200, body: { ok: true } };
+    }
+    if (session.assigned_to_user_id !== staffId) {
+      await connection.rollback();
+      transactionStarted = false;
+      return { status: 403, body: { error: 'Only the assigned staff member can close this chat.' } };
+    }
+
+    await connection.execute(
+      `UPDATE website_chat_sessions
+       SET status = 'closed', handling_status = 'resolved',
+           resolution_note = ?,
+           read_by_user_id = ?, read_at = CURRENT_TIMESTAMP,
+           last_action_by_user_id = ?, last_action_type = 'updated',
+           last_action_note = 'Chat closed by staff.',
+           last_action_at = CURRENT_TIMESTAMP
+       WHERE session_id = ?`,
+      [note || null, staffId, staffId, sessionId]
+    );
+    await connection.execute(
+      `INSERT INTO website_chat_messages
+         (message_id, session_id, sender_id, sender_role, message_text)
+       VALUES (?, ?, ?, 'staff', ?)`,
+      [
+        randomUUID(),
+        sessionId,
+        staffId,
+        'Thank you for chatting with All In One Solution. It was a pleasure assisting you. If you need anything else, please start a new chat — we will be happy to help. Have a wonderful day!',
+      ]
+    );
+    await connection.commit();
+    transactionStarted = false;
+    return { status: 200, body: { ok: true } };
+  } catch (error) {
+    if (transactionStarted) await connection.rollback();
+    throw error;
+  } finally {
+    if (lockAcquired) await connection.execute('SELECT RELEASE_LOCK(?)', [lockName]);
+    connection.release();
+  }
+}
+
 const server = createServer(async (request, response) => {
   if (request.method === 'GET' && request.url === '/healthz') {
     try {
@@ -181,7 +352,7 @@ const server = createServer(async (request, response) => {
       return send(response, 503, { error: 'Database unavailable.' });
     }
   }
-  if (request.method !== 'POST' || !['/execute', '/admin/user-role'].includes(request.url)) {
+  if (request.method !== 'POST' || !['/execute', '/admin/user-role', '/staff/chat'].includes(request.url)) {
     return send(response, 404, { error: 'Not found.' });
   }
   if (!authorized(request)) return send(response, 401, { error: 'Unauthorized.' });
@@ -194,6 +365,10 @@ const server = createServer(async (request, response) => {
     if (request.url === '/admin/user-role') {
       const result = await updateUserRole(body);
       return send(response, result.status, result.body);
+    }
+    if (request.url === '/staff/chat') {
+      const result = await manageStaffChat(body);
+      return send(response, 200, result);
     }
     const values = validateStatement(body);
     const [result] = await pool.execute(body.sql, values);

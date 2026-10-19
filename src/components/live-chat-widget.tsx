@@ -24,9 +24,15 @@ type Message = {
 };
 
 type ApiError = { error?: string };
+type VisitorChatState = {
+  status: 'active' | 'closed';
+  assignedTo: string | null;
+  queueAhead: number;
+  waitingCount: number;
+};
 
 const AGENT_GREETING =
-  'Hi there! Send us your question and our team will reply here as soon as possible.';
+  'Welcome to All In One Solution! Please share your question below. A team member will join as soon as one is available.';
 const TOKEN_STORAGE_KEY = 'chatVisitorToken';
 const SESSION_STORAGE_KEY = 'chatSessionId';
 
@@ -40,6 +46,7 @@ export default function LiveChatWidget() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [visitorToken, setVisitorToken] = useState<string | null>(null);
   const [messagesData, setMessagesData] = useState<Message[]>([]);
+  const [chatState, setChatState] = useState<VisitorChatState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -65,6 +72,7 @@ export default function LiveChatWidget() {
     localStorage.setItem(SESSION_STORAGE_KEY, body.sessionId);
     setSessionId(body.sessionId);
     setMessagesData([]);
+    setChatState(null);
     setError(null);
   }, []);
 
@@ -122,9 +130,13 @@ export default function LiveChatWidget() {
         signal,
       }
     );
-    const body = (await response.json()) as { messages?: Message[] } & ApiError;
+    const body = (await response.json()) as {
+      messages?: Message[];
+      session?: VisitorChatState;
+    } & ApiError;
     if (!response.ok) throw new Error(body.error || 'Unable to load chat messages.');
     setMessagesData(body.messages ?? []);
+    setChatState(body.session ?? null);
     setError(null);
   }, []);
 
@@ -194,6 +206,22 @@ export default function LiveChatWidget() {
     }
   };
 
+  const startNewChat = async () => {
+    if (!visitorToken) return;
+    setIsSending(true);
+    try {
+      await createSession(visitorToken);
+    } catch (sessionError) {
+      setError(
+        sessionError instanceof Error
+          ? sessionError.message
+          : 'Unable to start a new chat.'
+      );
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   useEffect(() => {
     const scrollableView = scrollAreaRef.current?.querySelector('div');
     scrollableView?.scrollTo({
@@ -244,6 +272,19 @@ export default function LiveChatWidget() {
             </Button>
           </CardHeader>
           <CardContent className="flex-grow overflow-hidden p-4">
+            <div
+              role="status"
+              aria-live="polite"
+              className="mb-3 rounded-md bg-secondary px-3 py-2 text-xs text-secondary-foreground"
+            >
+              {chatState?.status === 'closed'
+                ? 'This conversation has been closed. You are welcome to start a new chat any time.'
+                : chatState?.assignedTo
+                  ? `You are now chatting with ${chatState.assignedTo}.`
+                  : chatState
+                    ? `There ${chatState.waitingCount === 1 ? 'is' : 'are'} ${chatState.waitingCount} visitor${chatState.waitingCount === 1 ? '' : 's'} waiting. You are #${chatState.queueAhead + 1} in line, and our team will join as soon as someone is available.`
+                    : 'Connecting you to our support team...'}
+            </div>
             <ScrollArea className="h-full" ref={scrollAreaRef}>
               <div className="space-y-4">
                 {messages.map((message, index) => {
@@ -290,6 +331,16 @@ export default function LiveChatWidget() {
                 {error}
               </p>
             )}
+            {chatState?.status === 'closed' && (
+              <Button
+                type="button"
+                className="mt-3 w-full"
+                onClick={() => void startNewChat()}
+                disabled={!visitorToken || isSending}
+              >
+                Start a new conversation
+              </Button>
+            )}
           </CardContent>
           <CardFooter className="border-t p-4">
             <form onSubmit={handleSendMessage} className="flex w-full items-center gap-2">
@@ -299,13 +350,13 @@ export default function LiveChatWidget() {
                 placeholder="Type your message..."
                 autoComplete="off"
                 maxLength={2000}
-                disabled={!visitorToken || !sessionId || isSending}
+                disabled={!visitorToken || !sessionId || isSending || chatState?.status === 'closed'}
               />
               <Button
                 type="submit"
                 size="icon"
                 aria-label="Send message"
-                disabled={!visitorToken || !sessionId || isSending}
+                disabled={!visitorToken || !sessionId || isSending || chatState?.status === 'closed'}
               >
                 <Send className="h-5 w-5" />
               </Button>

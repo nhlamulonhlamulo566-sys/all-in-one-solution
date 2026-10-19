@@ -16,6 +16,7 @@ type ChatSession = {
   status: 'active' | 'closed';
   handling_status: 'open' | 'in_progress' | 'resolved' | 'unresolved' | 'escalated';
   resolution_note: string | null;
+  assigned_to_user_id: string | null;
   assigned_to: string | null;
   read_by: string | null;
   last_action_by: string | null;
@@ -28,7 +29,8 @@ type ChatSession = {
 type ChatWorkflowStatus = ChatSession['handling_status'];
 type ChatWorkflowUpdate =
   | { action: 'read' }
-  | { action: 'claim' }
+  | { action: 'accept' }
+  | { action: 'close'; note?: string }
   | { action: 'update'; status: ChatWorkflowStatus; note: string };
 
 type ChatMessage = {
@@ -47,6 +49,9 @@ export default function ChatDashboard() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [reply, setReply] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [activeChats, setActiveChats] = useState(0);
+  const [waitingCount, setWaitingCount] = useState(0);
+  const [capacity, setCapacity] = useState(5);
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [draftStatus, setDraftStatus] = useState<ChatWorkflowStatus | null>(null);
@@ -64,10 +69,19 @@ export default function ChatDashboard() {
         cache: 'no-store',
         signal,
       });
-      const body = (await response.json()) as { sessions?: ChatSession[]; error?: string };
+      const body = (await response.json()) as {
+        sessions?: ChatSession[];
+        activeChats?: number;
+        waitingCount?: number;
+        capacity?: number;
+        error?: string;
+      };
       if (!response.ok) throw new Error(body.error || 'Unable to load chat sessions.');
       const nextSessions = body.sessions ?? [];
       setSessions(nextSessions);
+      setActiveChats(body.activeChats ?? 0);
+      setWaitingCount(body.waitingCount ?? 0);
+      setCapacity(body.capacity ?? 5);
       setSelectedSessionId((current) =>
         current && nextSessions.some((session) => session.session_id === current)
           ? current
@@ -200,20 +214,42 @@ export default function ChatDashboard() {
     return <p role="alert" className="text-destructive">Unable to load chats: {error}</p>;
   }
 
-  if (sessions.length === 0) {
-    return (
-      <div className="text-center text-muted-foreground p-8">
-        <p>No chat sessions yet. New visitor conversations appear here.</p>
-        {error && <p role="status" className="mt-2 text-sm text-destructive">{error}</p>}
-      </div>
-    );
-  }
-
   const selectedSession = sessions.find(
     (session) => session.session_id === selectedSessionId
   );
+  const canManageSelectedSession = Boolean(
+    selectedSession
+      && selectedSession.status === 'active'
+      && selectedSession.assigned_to_user_id === user?.id
+  );
+  const nextWaitingSession = sessions.find(
+    (session) => session.status === 'active' && !session.assigned_to_user_id
+  );
+  const capacitySummary = (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border bg-secondary/40 px-4 py-3 text-sm">
+      <p>
+        Chats you are handling: <span className="font-semibold">{activeChats}/{capacity}</span>
+      </p>
+      <p>
+        Waiting for a teammate: <span className="font-semibold">{waitingCount}</span>
+      </p>
+      {activeChats >= capacity && (
+        <p className="w-full text-xs text-muted-foreground">
+          You are at capacity. Close a resolved conversation to accept the next client.
+        </p>
+      )}
+    </div>
+  );
 
   return (
+    <div>
+      {capacitySummary}
+      {sessions.length === 0 ? (
+        <div className="text-center text-muted-foreground p-8">
+          <p>No chat sessions yet. New visitor conversations appear here.</p>
+          {error && <p role="status" className="mt-2 text-sm text-destructive">{error}</p>}
+        </div>
+      ) : (
     <div className="grid min-h-[28rem] gap-4 lg:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.5fr)]">
       <Card className="overflow-hidden">
         <CardContent className="p-0">
@@ -277,18 +313,43 @@ export default function ChatDashboard() {
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isUpdating}
-                  onClick={() => void updateWorkflow(selectedSession.session_id, { action: 'claim' })}
-                >
-                  Take ownership
-                </Button>
+                {!selectedSession.assigned_to_user_id
+                  && selectedSession.status === 'active'
+                  && nextWaitingSession?.session_id === selectedSession.session_id && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isUpdating || activeChats >= capacity}
+                    onClick={() => void updateWorkflow(selectedSession.session_id, { action: 'accept' })}
+                  >
+                    Accept next chat
+                  </Button>
+                )}
+                {selectedSession.status === 'active'
+                  && selectedSession.assigned_to_user_id === user?.id && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isUpdating}
+                    onClick={() => void updateWorkflow(selectedSession.session_id, {
+                      action: 'close',
+                      note: draftNote ?? selectedSession.resolution_note ?? '',
+                    })}
+                  >
+                    Close chat &amp; finish
+                  </Button>
+                )}
+                {selectedSession.assigned_to_user_id
+                  && selectedSession.assigned_to_user_id !== user?.id && (
+                  <p className="self-center text-sm text-muted-foreground">
+                    {selectedSession.assigned_to} is handling this conversation.
+                  </p>
+                )}
                 <select
                   aria-label="Chat outcome"
                   value={draftStatus ?? selectedSession.handling_status}
                   onChange={(event) => setDraftStatus(event.target.value as ChatWorkflowStatus)}
+                  disabled={!canManageSelectedSession || isUpdating}
                   className="rounded-md border bg-background px-3 py-2 text-sm"
                 >
                   <option value="open">Open</option>
@@ -299,12 +360,22 @@ export default function ChatDashboard() {
                 </select>
                 <Button
                   type="button"
-                  disabled={isUpdating}
-                  onClick={() => void updateWorkflow(selectedSession.session_id, {
-                    action: 'update',
-                    status: draftStatus ?? selectedSession.handling_status,
-                    note: draftNote ?? selectedSession.resolution_note ?? '',
-                  })}
+                  disabled={!canManageSelectedSession || isUpdating}
+                  onClick={() => {
+                    const status = draftStatus ?? selectedSession.handling_status;
+                    if (status === 'resolved') {
+                      void updateWorkflow(selectedSession.session_id, {
+                        action: 'close',
+                        note: draftNote ?? selectedSession.resolution_note ?? '',
+                      });
+                    } else {
+                      void updateWorkflow(selectedSession.session_id, {
+                        action: 'update',
+                        status,
+                        note: draftNote ?? selectedSession.resolution_note ?? '',
+                      });
+                    }
+                  }}
                 >
                   Save outcome
                 </Button>
@@ -315,6 +386,7 @@ export default function ChatDashboard() {
                 onChange={(event) => setDraftNote(event.target.value)}
                 maxLength={2000}
                 placeholder="Add resolution details or explain why it needs escalation..."
+                disabled={!canManageSelectedSession || isUpdating}
                 className="min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
               />
             </div>
@@ -356,19 +428,21 @@ export default function ChatDashboard() {
                 onChange={(event) => setReply(event.target.value)}
                 placeholder="Reply to this visitor..."
                 maxLength={2000}
-                disabled={selectedSession.status !== 'active' || isSending}
+                disabled={selectedSession.status !== 'active' || selectedSession.assigned_to_user_id !== user?.id || isSending}
               />
               <Button
                 type="submit"
                 size="icon"
                 aria-label="Send reply"
-                disabled={selectedSession.status !== 'active' || isSending || !reply.trim()}
+                disabled={selectedSession.status !== 'active' || selectedSession.assigned_to_user_id !== user?.id || isSending || !reply.trim()}
               >
                 <Send className="h-4 w-4" />
               </Button>
             </form>
           </CardContent>
         </Card>
+      )}
+    </div>
       )}
     </div>
   );

@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS website_chat_sessions (
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (session_id),
   KEY idx_website_chat_sessions_status_created (status, created_at),
+  KEY idx_website_chat_sessions_assignment_queue (
+    status, assigned_to_user_id, created_at, session_id
+  ),
   KEY idx_website_chat_sessions_token (visitor_token_hash),
   KEY idx_website_chat_sessions_visitor (visitor_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { RowDataPacket } from 'mysql2';
-import { getMySqlPool } from '@/lib/mysql';
+import { getMySqlPool, manageStaffChat } from '@/lib/mysql';
 import { isResponse, requireStaff } from '@/lib/staff-api';
 
 export const runtime = 'nodejs';
@@ -10,6 +10,7 @@ interface SessionRow extends RowDataPacket {
   session_id: string;
   visitor_id: string;
   status: 'active' | 'closed';
+  assigned_to_user_id: string | null;
   created_at: Date;
 }
 
@@ -28,7 +29,11 @@ const replySchema = z.object({
 
 const workflowSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('read') }),
-  z.object({ action: z.literal('claim') }),
+  z.object({ action: z.literal('accept') }),
+  z.object({
+    action: z.literal('close'),
+    note: z.string().trim().max(2000).optional(),
+  }),
   z.object({
     action: z.literal('update'),
     status: z.enum(['open', 'in_progress', 'resolved', 'unresolved', 'escalated']),
@@ -99,7 +104,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const pool = getMySqlPool();
     const [sessions] = await pool.execute<SessionRow[]>(
-      `SELECT session_id, visitor_id, status, created_at
+      `SELECT session_id, visitor_id, status, assigned_to_user_id, created_at
        FROM website_chat_sessions WHERE session_id = ? LIMIT 1`,
       [sessionId]
     );
@@ -116,28 +121,41 @@ export async function PATCH(request: Request, { params }: RouteContext) {
          WHERE session_id = ?`,
         [user.id, user.id, sessionId]
       );
-    } else if (parsed.data.action === 'claim') {
-      await pool.execute(
-        `UPDATE website_chat_sessions
-         SET assigned_to_user_id = ?, read_by_user_id = ?, read_at = CURRENT_TIMESTAMP,
-             last_action_by_user_id = ?,
-             last_action_type = 'claimed', last_action_note = NULL,
-             last_action_at = CURRENT_TIMESTAMP
-         WHERE session_id = ?`,
-        [user.id, user.id, user.id, sessionId]
-      );
+    } else if (parsed.data.action === 'accept' || parsed.data.action === 'close') {
+      const result = await manageStaffChat({
+        action: parsed.data.action,
+        sessionId,
+        staffId: user.id,
+        ...(parsed.data.action === 'close' ? { note: parsed.data.note } : {}),
+      });
+      return Response.json(result.body, { status: result.status });
     } else {
       const { status, note } = parsed.data;
+      if (status === 'resolved') {
+        const result = await manageStaffChat({
+          action: 'close',
+          sessionId,
+          staffId: user.id,
+          note,
+        });
+        return Response.json(result.body, { status: result.status });
+      }
+      if (sessions[0].status !== 'active' || sessions[0].assigned_to_user_id !== user.id) {
+        return Response.json(
+          { error: 'Only the assigned staff member can update an active chat.' },
+          { status: 403 }
+        );
+      }
       await pool.execute(
         `UPDATE website_chat_sessions
          SET handling_status = ?,
-             status = CASE WHEN ? = 'resolved' THEN 'closed' ELSE 'active' END,
+             status = 'active',
              resolution_note = ?, read_by_user_id = ?,
              read_at = CURRENT_TIMESTAMP, last_action_by_user_id = ?,
              last_action_type = 'updated', last_action_note = ?,
              last_action_at = CURRENT_TIMESTAMP
          WHERE session_id = ?`,
-        [status, status, note || null, user.id, user.id, note || null, sessionId]
+        [status, note || null, user.id, user.id, note || null, sessionId]
       );
     }
 
@@ -173,7 +191,7 @@ export async function POST(request: Request, { params }: RouteContext) {
   try {
     const pool = getMySqlPool();
     const [sessions] = await pool.execute<SessionRow[]>(
-      `SELECT session_id, visitor_id, status, created_at
+      `SELECT session_id, visitor_id, status, assigned_to_user_id, created_at
        FROM website_chat_sessions WHERE session_id = ? LIMIT 1`,
       [sessionId]
     );
@@ -183,6 +201,12 @@ export async function POST(request: Request, { params }: RouteContext) {
     }
     if (session.status !== 'active') {
       return Response.json({ error: 'This chat session is closed.' }, { status: 409 });
+    }
+    if (session.assigned_to_user_id !== user.id) {
+      return Response.json(
+        { error: 'Accept this chat before replying to the visitor.' },
+        { status: 403 }
+      );
     }
     const messageId = randomUUID();
     await pool.execute(

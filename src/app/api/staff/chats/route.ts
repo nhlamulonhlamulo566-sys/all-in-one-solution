@@ -11,6 +11,7 @@ interface ChatSessionRow extends RowDataPacket {
   handling_status: 'open' | 'in_progress' | 'resolved' | 'unresolved' | 'escalated';
   resolution_note: string | null;
   assigned_to: string | null;
+  assigned_to_user_id: string | null;
   read_by: string | null;
   last_action_by: string | null;
   last_action_type: 'read' | 'claimed' | 'updated' | null;
@@ -25,9 +26,11 @@ export async function GET(request: Request) {
   if (isResponse(user)) return user;
 
   try {
-    const [sessions] = await getMySqlPool().execute<ChatSessionRow[]>(
+    const pool = getMySqlPool();
+    const [sessions] = await pool.execute<ChatSessionRow[]>(
       `SELECT s.session_id, s.visitor_id, s.status, s.handling_status,
               s.resolution_note, assigned.full_name AS assigned_to,
+              s.assigned_to_user_id,
               reader.full_name AS read_by, actor.full_name AS last_action_by,
               s.last_action_type, s.last_action_note, s.created_at,
               m.message_text AS last_message, m.created_at AS last_message_at
@@ -43,10 +46,24 @@ export async function GET(request: Request) {
            ORDER BY latest.created_at DESC, latest.message_id DESC
            LIMIT 1
          )
-       ORDER BY COALESCE(m.created_at, s.created_at) DESC
+       ORDER BY (s.assigned_to_user_id IS NULL) DESC,
+                CASE WHEN s.assigned_to_user_id IS NULL THEN s.created_at END ASC,
+                COALESCE(m.created_at, s.created_at) DESC
        LIMIT 100`
     );
-    return Response.json({ sessions });
+    const [counts] = await pool.execute<RowDataPacket[]>(
+      `SELECT
+         COUNT(CASE WHEN status = 'active' AND assigned_to_user_id = ? THEN 1 END) AS active_chats,
+         COUNT(CASE WHEN status = 'active' AND assigned_to_user_id IS NULL THEN 1 END) AS waiting_count
+       FROM website_chat_sessions`,
+      [user.id]
+    );
+    return Response.json({
+      sessions,
+      activeChats: Number(counts[0]?.active_chats ?? 0),
+      waitingCount: Number(counts[0]?.waiting_count ?? 0),
+      capacity: 5,
+    });
   } catch (error) {
     console.error('Failed to load staff chat sessions from MySQL.', error);
     return Response.json(

@@ -115,8 +115,14 @@ are owned by random visitor tokens; MySQL stores only their SHA-256 hashes.
 The public site displays a floating “Chat with us” launcher on visitor pages;
 visitors can send questions without signing in, and staff can answer and manage
 those conversations at `/admin/chat`. Chat sessions are created when a visitor
-opens the widget. Staff chat and lead APIs require a valid MySQL session and a
-`staff`, `admin`, or `super_admin` MySQL role.
+opens the widget. Each staff member can accept up to five waiting chats at
+once; the next visitor is accepted in queue order when a slot is available.
+Closing a resolved chat sends a courteous sign-off and frees that slot
+immediately. Accepted chats include a personalized staff welcome, while
+visitors see their place in the waiting queue. Apply
+[`database/migrations/004-live-chat-capacity.sql`](./database/migrations/004-live-chat-capacity.sql)
+to existing databases. Staff chat and lead APIs require a valid MySQL session
+and a `staff`, `admin`, or `super_admin` MySQL role.
 
 AI FAQ answers and service descriptions use the server-side Gemini API; the
 API key is never sent to the browser.
