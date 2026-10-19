@@ -25,6 +25,12 @@ function getDirectPool() {
   if (missing.length) {
     throw new Error(`Missing database configuration: ${missing.join(', ')}`);
   }
+  const databaseCa = process.env.DB_SSL_CA?.trim();
+  if (!databaseCa) {
+    throw new Error(
+      'DB_SSL_CA is required for direct MySQL connections; unverified TLS is not allowed.'
+    );
+  }
 
   directPool = createPool({
     host: DB_HOST,
@@ -32,7 +38,10 @@ function getDirectPool() {
     user: DB_USER,
     password: DB_PASSWORD,
     database: DB_NAME,
-    ssl: { rejectUnauthorized: false },
+    ssl: {
+      ca: databaseCa.replace(/\\n/g, '\n'),
+      rejectUnauthorized: true,
+    },
     charset: 'utf8mb4',
     waitForConnections: true,
     connectionLimit: 10,

@@ -30,6 +30,11 @@ const missingDbConfig = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']
 if (missingDbConfig.length) {
   throw new Error(`Missing database configuration: ${missingDbConfig.join(', ')}`);
 }
+if (!process.env.DB_SSL_CA?.trim()) {
+  throw new Error(
+    'DB_SSL_CA is required. Configure the trusted MySQL server CA certificate; unverified TLS is not allowed.'
+  );
+}
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -37,9 +42,10 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  ssl: process.env.DB_SSL_CA
-    ? { ca: process.env.DB_SSL_CA.replace(/\\n/g, '\n'), rejectUnauthorized: true }
-    : { rejectUnauthorized: false },
+  ssl: {
+    ca: process.env.DB_SSL_CA.replace(/\\n/g, '\n'),
+    rejectUnauthorized: true,
+  },
   charset: 'utf8mb4',
   waitForConnections: true,
   connectionLimit: 5,

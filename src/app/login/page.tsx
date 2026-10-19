@@ -62,6 +62,7 @@ export default function LoginPage() {
         await refreshUser();
         router.replace('/admin');
       } catch (error) {
+        form.reset({ email: '', password: '' });
         setAuthError(error instanceof Error ? error.message : 'Unable to sign in.');
       }
     });

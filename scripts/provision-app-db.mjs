@@ -125,15 +125,16 @@ async function provision(app) {
   await createPrivateDirectory(outputDirectory);
 
   const password = randomBytes(32).toString('base64url');
-  const tlsCa = process.env.DB_PROVISIONER_SSL_CA;
+  const tlsCa = requiredEnv('DB_PROVISIONER_SSL_CA').replace(/\\n/g, '\n');
+  const appDbCa = process.env.DB_PROVISIONER_APP_SSL_CA?.trim()
+    ? process.env.DB_PROVISIONER_APP_SSL_CA.replace(/\\n/g, '\n')
+    : tlsCa;
   const connection = await mysql.createConnection({
     host: adminHost,
     port: adminPort,
     user: adminUser,
     password: adminPassword,
-    ssl: tlsCa
-      ? { ca: tlsCa.replace(/\\n/g, '\n'), rejectUnauthorized: true }
-      : { rejectUnauthorized: false },
+    ssl: { ca: tlsCa, rejectUnauthorized: true },
     charset: 'utf8mb4',
   });
   let databaseCreated = false;
@@ -171,6 +172,7 @@ async function provision(app) {
           `DB_NAME=${encodeEnvValue(app.database)}`,
           `DB_USER=${encodeEnvValue(app.user)}`,
           `DB_PASSWORD=${encodeEnvValue(password)}`,
+          `DB_SSL_CA=${encodeEnvValue(appDbCa)}`,
           '',
         ].join('\n'),
         'utf8'

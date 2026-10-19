@@ -26,10 +26,11 @@ preliminary estimates; confirm scope and the final amount in a written quote.
 ### Configure and run
 
 1. For local development, set `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`,
-   and `DB_NAME` (normally `allinonesolution`) in `.env.local`. Vercel uses the
-   HTTPS database gateway described below. `GEMINI_API_KEY` is required for
-   the AI FAQ endpoint. Keep all values server-side and out of source control
-   and `NEXT_PUBLIC_` variables.
+   `DB_NAME` (normally `allinonesolution`), and the trusted MySQL certificate
+   in `DB_SSL_CA` in `.env.local`. Multiline CA content may use literal `\n`
+   sequences. Vercel uses the HTTPS database gateway described below.
+   `GEMINI_API_KEY` is required for the AI FAQ endpoint. Keep all values
+   server-side and out of source control and `NEXT_PUBLIC_` variables.
 2. Use [`database/schema.sql`](./database/schema.sql) as the database schema
    reference. Existing deployments must also have the MySQL-auth tables and
    required migrations applied; do not rely on `CREATE TABLE IF NOT EXISTS` to
@@ -48,7 +49,8 @@ overwrite saved credentials.
 1. Copy [`database-gateway/provisioner.env.example`](./database-gateway/provisioner.env.example)
    to `.env.provisioner` in the repository root. Enter a dedicated database
    administrator account with `CREATE DATABASE`, `CREATE USER`, and `GRANT
-   OPTION` privileges. Configure `DB_PROVISIONER_APP_HOST` as the private
+   OPTION` privileges. Configure `DB_PROVISIONER_SSL_CA` with the trusted CA
+   certificate for MySQL and `DB_PROVISIONER_APP_HOST` as the private
    address or subnet used by the app's database gateway; never use the
    unrestricted `%` host.
 2. Run `npm run db:provision -- --app <name>` (for example,
@@ -57,14 +59,15 @@ overwrite saved credentials.
    `--dry-run` to check the proposed database, user, and output path without
    connecting to MySQL.
 3. Configure the generated `DB_*` values in the new app's private gateway
-   service and hosting environment. The provisioner does not publish MySQL or
+   service and hosting environment. The provisioner saves the verified MySQL
+   CA as `DB_SSL_CA`. The provisioner does not publish MySQL or
    automatically change Cloudflare/Vercel settings; keep using the HTTPS
    gateway rather than exposing MySQL to the internet.
 
 The generated credential file is private to the current Windows account (or
 owner account on Unix-like systems). Keep `.env.provisioner` private and out of
-source control. The database connection uses verified TLS when a CA is
-provided; without one it allows unverified TLS for self-signed certificates.
+source control. The provisioner requires a trusted CA and writes it to the
+generated `DB_SSL_CA` setting so the new app can validate the database server.
 
 ### Vercel access to a locally hosted MySQL database
 
@@ -91,9 +94,12 @@ Only SQL statements extracted from the app's literal query strings are
 accepted by the gateway. Do not expose its token to browser code.
 
 The gateway uses TLS between the browser-independent app server and Cloudflare,
-and Cloudflare Tunnel encrypts traffic to the MySQL host. Configure a trusted
-CA for the MySQL host connection when possible; unverified TLS is supported for
-self-signed local certificates but does not authenticate the database server.
+and Cloudflare Tunnel encrypts traffic to the MySQL host. Set `DB_SSL_CA` to the
+trusted CA certificate for the MySQL server (use `\n` for embedded newlines).
+The gateway and direct database connections refuse to start without that CA
+and always validate the server certificate. Do not disable certificate
+validation to work around a TLS error; install the correct CA certificate
+instead.
 
 ### MySQL accounts and staff roles
 
