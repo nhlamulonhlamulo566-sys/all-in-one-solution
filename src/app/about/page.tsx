@@ -204,6 +204,37 @@ export default async function AboutPage() {
               <p className="text-lg text-muted-foreground break-words whitespace-pre-line">
                 {leadershipContent.description}
               </p>
+              {leadershipContent.members.length > 0 && (
+                <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {leadershipContent.members.map((member) => (
+                    <Card key={member.id} className="h-full overflow-hidden text-left">
+                      <CardContent className="flex h-full flex-col items-center p-6 text-center">
+                        <div className="mb-5 flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-3xl font-semibold text-primary ring-4 ring-background shadow-md">
+                          {member.imageData ? (
+                            <Image
+                              src={member.imageData}
+                              alt={member.name}
+                              width={128}
+                              height={128}
+                              unoptimized
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span aria-hidden="true">{member.name.trim().charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <h3 className="text-xl font-semibold tracking-tight">{member.name}</h3>
+                        <p className="mt-1 text-sm font-medium text-primary">{member.position}</p>
+                        {member.bio && (
+                          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                            {member.bio}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <p className="text-sm text-muted-foreground">

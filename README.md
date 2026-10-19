@@ -9,9 +9,14 @@ shows the incoming leads, request totals, and 14-day live activity chart.
 Staff dashboards refresh their MySQL data automatically. Announcement and
 request timestamps are displayed in South African time.
 
-Administrators can update the About page leadership heading and introduction
-from `/admin/content`. Only administrators and super administrators can save
-changes; the public About page reads the saved text from MySQL.
+Administrators can update the About page leadership heading and introduction,
+and add leadership profiles with photos, names, positions, and short bios from
+`/admin/content`. Only administrators and super administrators can save
+changes; the public About page reads the saved content from MySQL. Profile
+photos are resized to JPEG and limited to 120 KiB each, six profiles, and 700
+KiB combined. Apply migration
+[`database/migrations/006-about-leadership-profiles.sql`](./database/migrations/006-about-leadership-profiles.sql)
+before using profile editing on an existing database.
 
 The Instant Quotation Calculator uses fixed, budget-conscious starter estimates
 in South African rand rather than random prices: standard websites R3,500,
@@ -35,7 +40,10 @@ preliminary estimates; confirm scope and the final amount in a written quote.
    reference. Existing deployments must also have the MySQL-auth tables and
    required migrations applied; do not rely on `CREATE TABLE IF NOT EXISTS` to
    alter existing tables. Apply [`database/migrations/005-about-leadership-content.sql`](./database/migrations/005-about-leadership-content.sql)
-   to existing databases before using the editable About page content.
+   and
+   [`database/migrations/006-about-leadership-profiles.sql`](./database/migrations/006-about-leadership-profiles.sql)
+   to existing databases before using the editable About page content and
+   leadership profiles.
 3. Start the development server with `npm run dev`.
 
 ### Provisioning an isolated database for another app

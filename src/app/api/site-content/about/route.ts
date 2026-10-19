@@ -13,6 +13,13 @@ interface PageContentKeyRow extends RowDataPacket {
 const aboutLeadershipSchema = z.object({
   heading: z.string().trim().min(2).max(120),
   description: z.string().trim().min(10).max(2000),
+  members: z.array(z.object({
+    id: z.string().uuid(),
+    name: z.string().trim().min(2).max(100),
+    position: z.string().trim().min(2).max(100),
+    bio: z.string().trim().max(400),
+    imageData: z.string().max(180_000).nullable(),
+  }).strict()).max(6),
 });
 
 export async function GET() {
@@ -44,17 +51,47 @@ export async function PUT(request: Request) {
   const parsed = aboutLeadershipSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(
-      { error: 'Enter a heading and description within the allowed lengths.' },
+      { error: 'Check the heading, introduction, and leadership profiles for missing or oversized fields.' },
       { status: 400 }
+    );
+  }
+  if (new Set(parsed.data.members.map((member) => member.id)).size !== parsed.data.members.length) {
+    return Response.json({ error: 'Each leadership profile must have a unique ID.' }, { status: 400 });
+  }
+
+  for (const member of parsed.data.members) {
+    if (!member.imageData) continue;
+    const match = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/.exec(member.imageData);
+    if (!match) {
+      return Response.json({ error: 'Leadership photos must be valid JPEG images.' }, { status: 400 });
+    }
+    const image = Buffer.from(match[1], 'base64');
+    if (
+      image.length === 0
+      || image.length > 120 * 1024
+      || image.toString('base64') !== match[1]
+      || image[0] !== 0xff
+      || image[1] !== 0xd8
+      || image[2] !== 0xff
+    ) {
+      return Response.json({ error: 'A leadership photo is invalid or exceeds the 120 KiB limit.' }, { status: 400 });
+    }
+  }
+
+  const membersJson = JSON.stringify(parsed.data.members);
+  if (Buffer.byteLength(membersJson, 'utf8') > 700 * 1024) {
+    return Response.json(
+      { error: 'The combined leadership photos are too large. Use smaller photos.' },
+      { status: 413 }
     );
   }
 
   try {
     const [result] = await getMySqlPool().execute(
       `UPDATE website_page_content
-       SET heading = ?, description = ?
+       SET heading = ?, description = ?, members_json = ?
        WHERE page_key = 'about-leadership'`,
-      [parsed.data.heading, parsed.data.description]
+      [parsed.data.heading, parsed.data.description, membersJson]
     );
     if ('affectedRows' in result && result.affectedRows === 0) {
       const [rows] = await getMySqlPool().execute<PageContentKeyRow[]>(
@@ -70,7 +107,7 @@ export async function PUT(request: Request) {
         );
       }
     }
-    return Response.json(parsed.data, {
+    return Response.json({ ...parsed.data, members: parsed.data.members }, {
       headers: { 'Cache-Control': 'no-store' },
     });
   } catch (error) {

@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS website_page_content (
   page_key VARCHAR(80) NOT NULL,
   heading VARCHAR(120) NOT NULL,
   description TEXT NOT NULL,
+  members_json MEDIUMTEXT NULL,
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
     ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (page_key)
