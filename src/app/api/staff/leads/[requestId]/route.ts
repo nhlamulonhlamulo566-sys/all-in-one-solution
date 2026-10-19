@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { RowDataPacket } from 'mysql2';
 import { getMySqlPool } from '@/lib/mysql';
@@ -48,12 +47,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return Response.json({ error: 'Customer request not found.' }, { status: 404 });
     }
 
-    const activityId = randomUUID();
-    let action: 'read' | 'claimed' | 'status';
-    let details: string | null;
     if (parsed.data.action === 'read') {
-      action = 'read';
-      details = null;
       await pool.execute(
         `UPDATE customer_requests
          SET read_by_user_id = ?, read_at = CURRENT_TIMESTAMP,
@@ -63,8 +57,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         [user.id, user.id, requestId]
       );
     } else if (parsed.data.action === 'claim') {
-      action = 'claimed';
-      details = null;
       await pool.execute(
         `UPDATE customer_requests
          SET assigned_to_user_id = ?, read_by_user_id = ?, read_at = CURRENT_TIMESTAMP,
@@ -76,8 +68,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       );
     } else {
       const { status, note } = parsed.data;
-      action = 'status';
-      details = note ? `${status}: ${note}` : status;
       await pool.execute(
         `UPDATE customer_requests
          SET status = ?, resolution_note = ?, read_by_user_id = ?,
@@ -85,16 +75,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
              last_action_type = 'updated', last_action_note = ?,
              last_action_at = CURRENT_TIMESTAMP
          WHERE request_id = ?`,
-        [status, note || null, user.id, user.id, details, requestId]
+        [status, note || null, user.id, user.id, note || null, requestId]
       );
     }
 
-    await pool.execute(
-      `INSERT INTO website_staff_activity
-         (activity_id, entity_type, entity_id, staff_user_id, action, details)
-       VALUES (?, 'request', ?, ?, ?, ?)`,
-      [activityId, requestId, user.id, action, details]
-    );
     return Response.json({ ok: true });
   } catch (error) {
     console.error('Failed to update customer request workflow in MySQL.', error);
