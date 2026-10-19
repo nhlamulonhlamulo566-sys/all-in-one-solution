@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { useAuth, useUser } from '@/auth/provider';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from './ui/skeleton';
+import { isAdministratorRole, isStaffRole } from '@/lib/roles';
 
 export default function AuthButton({
   onAction,
@@ -37,7 +38,7 @@ export default function AuthButton({
   if (user) {
     return (
       <>
-        {(user.role === 'staff' || user.role === 'admin') && (
+        {isStaffRole(user.role) && (
           <>
             <Button asChild variant="ghost">
               <Link href="/admin" onClick={onAction}>Lead Dashboard</Link>
@@ -56,7 +57,7 @@ export default function AuthButton({
             </Button>
           </>
         )}
-        {user.role === 'admin' && (
+        {isAdministratorRole(user.role) && (
           <Button asChild variant="ghost">
             <Link href="/admin/users" onClick={onAction}>Team &amp; Access</Link>
           </Button>
@@ -70,7 +71,7 @@ export default function AuthButton({
 
   return (
     <Button asChild>
-      <Link href="/login" onClick={onAction}>Login / Sign Up</Link>
+      <Link href="/login" onClick={onAction}>Staff Login</Link>
     </Button>
   );
 }

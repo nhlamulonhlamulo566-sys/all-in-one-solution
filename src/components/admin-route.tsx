@@ -6,6 +6,7 @@ import { useUser } from '@/auth/provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShieldAlert } from 'lucide-react';
+import { isAdministratorRole } from '@/lib/roles';
 
 export default function AdminRoute({
   children,
@@ -30,7 +31,7 @@ export default function AdminRoute({
 
   if (!user) return null;
 
-  if (user.role !== 'admin') {
+  if (!isAdministratorRole(user.role)) {
     return (
       <div className="container mx-auto max-w-3xl px-4 py-12">
         <Card>

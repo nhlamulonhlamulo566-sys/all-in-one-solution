@@ -9,12 +9,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import type { AppRole } from '@/lib/roles';
 
 export type AppUser = {
   id: string;
   fullName: string;
   email: string;
-  role: 'user' | 'staff' | 'admin';
+  role: AppRole;
 };
 
 type AuthContextValue = {

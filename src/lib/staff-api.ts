@@ -1,4 +1,5 @@
 import { getAuthUser, type AuthUser } from '@/lib/mysql-auth';
+import { isAdministratorRole, isStaffRole } from '@/lib/roles';
 
 export type StaffUser = AuthUser;
 
@@ -12,7 +13,7 @@ export async function requireStaff(request: Request): Promise<StaffUser | Respon
     if (!user) {
       return Response.json({ error: 'Sign-in is required.' }, { status: 401 });
     }
-    if (user.role !== 'staff' && user.role !== 'admin') {
+    if (!isStaffRole(user.role)) {
       return Response.json({ error: 'Staff access is required.' }, { status: 403 });
     }
     return user;
@@ -28,7 +29,7 @@ export async function requireStaff(request: Request): Promise<StaffUser | Respon
 export async function requireAdmin(request: Request): Promise<StaffUser | Response> {
   const user = await requireStaff(request);
   if (isResponse(user)) return user;
-  if (user.role !== 'admin') {
+  if (!isAdministratorRole(user.role)) {
     return Response.json({ error: 'Administrator access is required.' }, { status: 403 });
   }
   return user;

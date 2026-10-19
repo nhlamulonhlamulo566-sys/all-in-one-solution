@@ -3,13 +3,13 @@ import 'server-only';
 import {
   createHash,
   randomBytes,
-  randomUUID,
   scrypt as scryptCallback,
   timingSafeEqual,
 } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { RowDataPacket } from 'mysql2';
 import { getMySqlPool } from '@/lib/mysql';
+import type { AppRole } from '@/lib/roles';
 
 const scrypt = promisify(scryptCallback);
 export const AUTH_COOKIE_NAME = 'aio_session';
@@ -19,7 +19,7 @@ export type AuthUser = {
   id: string;
   fullName: string;
   email: string;
-  role: 'user' | 'staff' | 'admin';
+  role: AppRole;
 };
 
 type AccountRow = RowDataPacket & {
@@ -27,14 +27,14 @@ type AccountRow = RowDataPacket & {
   full_name: string;
   email_address: string;
   password_hash: string;
-  role: AuthUser['role'];
+  role: AppRole;
 };
 
 type SessionUserRow = RowDataPacket & {
   user_id: string;
   full_name: string;
   email_address: string;
-  role: AuthUser['role'];
+  role: AppRole;
 };
 
 export function normalizeEmail(email: string) {
@@ -110,26 +110,6 @@ export async function revokeAuthSession(request: Request) {
     'DELETE FROM website_auth_sessions WHERE session_hash = ?',
     [hashSessionToken(token)]
   );
-}
-
-export async function createAccount(input: {
-  fullName: string;
-  email: string;
-  password: string;
-}) {
-  const userId = randomUUID();
-  const passwordHash = await hashPassword(input.password);
-  await getMySqlPool().execute(
-    `INSERT INTO website_users (user_id, full_name, email_address, password_hash)
-     VALUES (?, ?, ?, ?)`,
-    [userId, input.fullName.trim(), normalizeEmail(input.email), passwordHash]
-  );
-  return {
-    id: userId,
-    fullName: input.fullName.trim(),
-    email: normalizeEmail(input.email),
-    role: 'user' as const,
-  };
 }
 
 export async function findAccountByEmail(email: string) {

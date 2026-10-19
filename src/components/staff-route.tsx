@@ -6,6 +6,7 @@ import { useUser } from '@/auth/provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShieldAlert } from 'lucide-react';
+import { isStaffRole } from '@/lib/roles';
 
 export default function StaffRoute({
   children,
@@ -30,7 +31,7 @@ export default function StaffRoute({
 
   if (!user) return null;
 
-  if (user.role !== 'staff' && user.role !== 'admin') {
+  if (!isStaffRole(user.role)) {
     return (
       <div className="container mx-auto max-w-3xl px-4 py-12">
         <Card>
@@ -47,8 +48,8 @@ export default function StaffRoute({
               account the staff role.
             </p>
             <p className="text-sm">
-              The role is managed in MySQL and cannot be changed from the
-              public sign-up form.
+              The role is managed by a super administrator. Public visitors do
+              not need an account to use the site.
             </p>
           </CardContent>
         </Card>

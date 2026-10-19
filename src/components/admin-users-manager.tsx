@@ -7,27 +7,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { KeyRound, Loader2, ShieldCheck, UserPlus, Users } from 'lucide-react';
+import { APP_ROLES, type AppRole } from '@/lib/roles';
 
 type ManagedUser = {
   id: string;
   fullName: string;
   email: string;
-  role: 'user' | 'staff' | 'admin';
+  role: AppRole;
   createdAt?: string;
 };
 
 const roleLabels: Record<ManagedUser['role'], string> = {
-  user: 'User',
+  super_admin: 'Super administrator',
   staff: 'Staff',
   admin: 'Administrator',
 };
 
-function isManagedRole(role: string): role is ManagedUser['role'] {
-  return role === 'user' || role === 'staff' || role === 'admin';
+function isManagedRole(role: string): role is AppRole {
+  return APP_ROLES.some((managedRole) => managedRole === role);
 }
 
 export default function AdminUsersManager() {
   const { user: currentUser } = useUser();
+  const isSuperAdministrator = currentUser?.role === 'super_admin';
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -106,7 +108,9 @@ export default function AdminUsersManager() {
     }
   }
 
-  const adminCount = users.filter((account) => account.role === 'admin').length;
+  const adminCount = users.filter(
+    (account) => account.role === 'admin' || account.role === 'super_admin'
+  ).length;
   const staffCount = users.filter((account) => account.role === 'staff').length;
 
   return (
@@ -173,11 +177,13 @@ export default function AdminUsersManager() {
                         <p className="mt-1 text-xs text-muted-foreground">{account.email}</p>
                       </td>
                       <td className="py-4 pr-4">
-                        <Badge variant={account.role === 'admin' ? 'default' : 'secondary'}>{roleLabels[account.role]}</Badge>
+                        <Badge variant={account.role === 'staff' ? 'secondary' : 'default'}>{roleLabels[account.role]}</Badge>
                       </td>
                       <td className="py-4 text-right">
                         {account.id === currentUser?.id ? (
                           <span className="text-xs text-muted-foreground">Your access is protected</span>
+                        ) : !isSuperAdministrator ? (
+                          <span className="text-xs text-muted-foreground">Super administrator only</span>
                         ) : (
                           <select
                             aria-label={`Change access for ${account.fullName}`}
@@ -189,9 +195,9 @@ export default function AdminUsersManager() {
                               if (isManagedRole(role)) void handleRoleChange(account, role);
                             }}
                           >
-                            <option value="user">User</option>
-                            <option value="staff">Staff</option>
-                            <option value="admin">Administrator</option>
+                            {APP_ROLES.map((role) => (
+                              <option key={role} value={role}>{roleLabels[role]}</option>
+                            ))}
                           </select>
                         )}
                         {updatingUserId === account.id && <Loader2 className="ml-2 inline h-4 w-4 animate-spin" />}
@@ -227,9 +233,9 @@ export default function AdminUsersManager() {
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="role">Access level</label>
                 <select id="role" name="role" defaultValue="staff" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="user">User</option>
-                  <option value="staff">Staff</option>
-                  <option value="admin">Administrator</option>
+                  {(isSuperAdministrator ? APP_ROLES : ['staff'] as const).map((role) => (
+                    <option key={role} value={role}>{roleLabels[role]}</option>
+                  ))}
                 </select>
               </div>
               <Button className="w-full" type="submit" disabled={isCreating}>

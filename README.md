@@ -52,37 +52,39 @@ self-signed local certificates but does not authenticate the database server.
 
 ### MySQL accounts and staff roles
 
-Create an account at `/signup` with a new password of at least 12 characters,
-then sign in at `/login`. Passwords are hashed with Node.js `scrypt`; the
-browser receives only an `HttpOnly`, `SameSite=Lax` session cookie, while
-MySQL stores a hash of the opaque session token. Sign-out revokes the session
-in MySQL. Public registration always creates a `user` role and cannot assign
-staff privileges.
+Public registration is disabled. Visitors can use public site features,
+including contact requests, published announcements, and visitor chat, without
+signing in. Only staff, administrators, and super administrators can log in at
+`/login`. Passwords are hashed with Node.js `scrypt`; the browser receives only
+an `HttpOnly`, `SameSite=Lax` session cookie, while MySQL stores a hash of the
+opaque session token. Sign-out revokes the session in MySQL.
 
-Firebase password hashes cannot be imported. Existing users must create a new
-MySQL account/password. A database administrator promotes a trusted account
-after signup, using its account email:
+The account roles are `staff`, `admin` (Administrator), and `super_admin`
+(Super administrator). Administrators can use staff tools and create staff
+accounts. Only a super administrator can create administrator accounts or
+change account roles. The last super administrator cannot be demoted.
+
+For existing databases, confirm there are no accounts with the legacy `user`
+role, then apply the role migration:
 
 ```sql
-UPDATE website_users
-SET role = 'staff'
-WHERE email_address = 'staff@example.com';
+ALTER TABLE website_users
+  MODIFY role ENUM('staff', 'admin', 'super_admin')
+  NOT NULL DEFAULT 'staff';
 ```
 
-Use `admin` only for administrators. Once an administrator account has been
-provisioned, `/admin/users` lets administrators create accounts and change
-roles. The runtime MySQL identity needs `SELECT` and `INSERT` on
-`website_users`, plus permission to update only its `role` column; do not grant
-unrestricted table updates just for the role manager. The first administrator
-must be provisioned by a database administrator because public signup cannot
-assign administrator privileges.
+Provision the first super administrator through a trusted database
+administrator. `/admin/users` then lets super administrators manage the team.
+The runtime MySQL identity needs `SELECT` and `INSERT` on `website_users`, plus
+permission to update only its `role` column; do not grant unrestricted table
+updates just for the role manager.
 
 ### Announcements, chat, and former Firebase data
 
 Published announcements and visitor chat use MySQL. Anonymous chat sessions
 are owned by random visitor tokens; MySQL stores only their SHA-256 hashes.
-Staff chat and lead APIs require a valid MySQL session and a `staff` or
-`admin` MySQL role.
+Staff chat and lead APIs require a valid MySQL session and a `staff`, `admin`,
+or `super_admin` MySQL role.
 
 AI FAQ answers and service descriptions use the server-side Gemini API; the
 API key is never sent to the browser.

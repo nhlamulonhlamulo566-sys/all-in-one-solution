@@ -97,8 +97,9 @@ export function isMySqlGatewayEnabled() {
 
 export async function updateUserRoleThroughGateway(input: {
   userId: string;
-  role: 'user' | 'staff' | 'admin';
+  role: 'super_admin' | 'admin' | 'staff';
   adminId: string;
+  adminRole: 'super_admin' | 'admin' | 'staff';
 }) {
   return gatewayRequest<{ status: number; body: unknown }>('/admin/user-role', input);
 }

@@ -15,6 +15,7 @@ import AuthButton from './auth-button';
 import Logo from './logo';
 import { Separator } from './ui/separator';
 import { useUser } from '@/auth/provider';
+import { isAdministratorRole, isStaffRole } from '@/lib/roles';
 
 export default function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
@@ -58,7 +59,7 @@ export default function MobileNav() {
             >
               Contact Us
             </Link>
-            {(user?.role === 'staff' || user?.role === 'admin') && (
+            {user && isStaffRole(user.role) && (
               <>
                 <Separator className="my-2" />
                 <Link
@@ -96,7 +97,7 @@ export default function MobileNav() {
                     >
                     Announcements
                 </Link>
-                {user?.role === 'admin' && (
+                {user && isAdministratorRole(user.role) && (
                     <Link
                       href="/admin/users"
                       className="hover:text-primary w-full p-3 rounded-md transition-colors"

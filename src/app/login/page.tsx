@@ -78,8 +78,8 @@ export default function LoginPage() {
           </div>
           <CardTitle>Staff Login</CardTitle>
           <CardDescription>
-            Sign in with your MySQL-backed account. Staff dashboards require
-            an administrator to enable your staff role.
+            Authorized staff and administrators can sign in here. Public
+            visitors can use the rest of the site without an account.
           </CardDescription>
         </CardHeader>
         <CardContent>

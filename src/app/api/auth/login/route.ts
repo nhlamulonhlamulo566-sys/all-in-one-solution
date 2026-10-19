@@ -7,6 +7,7 @@ import {
   findAccountByEmail,
   verifyPassword,
 } from '@/lib/mysql-auth';
+import { isStaffRole } from '@/lib/roles';
 
 export const runtime = 'nodejs';
 
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
 
   try {
     const account = await findAccountByEmail(parsed.data.email);
-    const passwordValid = account
+    const passwordValid = account && isStaffRole(account.role)
       ? await verifyPassword(parsed.data.password, account.password_hash)
       : false;
     if (!account || !passwordValid) {

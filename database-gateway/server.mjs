@@ -120,11 +120,12 @@ function validateStatement(statement) {
   return statement.values ?? [];
 }
 
-async function updateUserRole({ userId, role, adminId }) {
+async function updateUserRole({ userId, role, adminId, adminRole }) {
   if (
     typeof userId !== 'string'
     || typeof adminId !== 'string'
-    || !['user', 'staff', 'admin'].includes(role)
+    || !['super_admin', 'admin', 'staff'].includes(role)
+    || adminRole !== 'super_admin'
   ) {
     return { status: 400, body: { error: 'Invalid role update.' } };
   }
@@ -142,20 +143,20 @@ async function updateUserRole({ userId, role, adminId }) {
       return { status: 404, body: { error: 'User account not found.' } };
     }
 
-    if (target.role === 'admin' && role !== 'admin') {
+    if (target.role === 'super_admin' && role !== 'super_admin') {
       if (target.user_id === adminId) {
         await connection.rollback();
         return {
           status: 409,
-          body: { error: 'You cannot remove administrator access from your own account.' },
+          body: { error: 'You cannot remove super administrator access from your own account.' },
         };
       }
       const [admins] = await connection.execute(
-        "SELECT user_id FROM website_users WHERE role = 'admin' FOR UPDATE"
+        "SELECT user_id FROM website_users WHERE role = 'super_admin' FOR UPDATE"
       );
       if (admins.length <= 1) {
         await connection.rollback();
-        return { status: 409, body: { error: 'The last administrator cannot be demoted.' } };
+        return { status: 409, body: { error: 'The last super administrator cannot be demoted.' } };
       }
     }
 

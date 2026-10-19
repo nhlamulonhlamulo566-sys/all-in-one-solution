@@ -4,6 +4,7 @@ import type { RowDataPacket } from 'mysql2';
 import { hashPassword, normalizeEmail } from '@/lib/mysql-auth';
 import { getMySqlPool } from '@/lib/mysql';
 import { isResponse, requireAdmin } from '@/lib/staff-api';
+import { APP_ROLES } from '@/lib/roles';
 
 export const runtime = 'nodejs';
 
@@ -11,7 +12,7 @@ interface ManagedUserRow extends RowDataPacket {
   user_id: string;
   full_name: string;
   email_address: string;
-  role: 'user' | 'staff' | 'admin';
+  role: (typeof APP_ROLES)[number];
   created_at: Date;
 }
 
@@ -19,7 +20,7 @@ const createUserSchema = z.object({
   fullName: z.string().trim().min(2).max(160),
   email: z.string().trim().email().max(254),
   password: z.string().min(12).max(128),
-  role: z.enum(['user', 'staff', 'admin']),
+  role: z.enum(APP_ROLES),
 });
 
 export async function GET(request: Request) {
@@ -63,6 +64,13 @@ export async function POST(request: Request) {
     return Response.json(
       { error: 'Enter a valid name and email, and a password of 12–128 characters.' },
       { status: 400 }
+    );
+  }
+
+  if (admin.role !== 'super_admin' && parsed.data.role !== 'staff') {
+    return Response.json(
+      { error: 'Only a super administrator can create administrator accounts.' },
+      { status: 403 }
     );
   }
 

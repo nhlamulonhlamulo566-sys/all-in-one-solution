@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS website_users (
   full_name VARCHAR(160) NOT NULL,
   email_address VARCHAR(254) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('user', 'staff', 'admin') NOT NULL DEFAULT 'user',
+  role ENUM('staff', 'admin', 'super_admin') NOT NULL DEFAULT 'staff',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ON UPDATE CURRENT_TIMESTAMP,

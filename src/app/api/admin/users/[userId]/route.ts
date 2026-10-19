@@ -6,12 +6,13 @@ import {
   updateUserRoleThroughGateway,
 } from '@/lib/mysql';
 import { isResponse, requireAdmin } from '@/lib/staff-api';
+import { APP_ROLES } from '@/lib/roles';
 
 export const runtime = 'nodejs';
 
 interface RoleRow extends RowDataPacket {
   user_id: string;
-  role: 'user' | 'staff' | 'admin';
+  role: (typeof APP_ROLES)[number];
 }
 
 interface UserIdRow extends RowDataPacket {
@@ -19,7 +20,7 @@ interface UserIdRow extends RowDataPacket {
 }
 
 const roleSchema = z.object({
-  role: z.enum(['user', 'staff', 'admin']),
+  role: z.enum(APP_ROLES),
 });
 
 export async function PATCH(
@@ -45,12 +46,20 @@ export async function PATCH(
     return Response.json({ error: 'Choose a valid account role.' }, { status: 400 });
   }
 
+  if (admin.role !== 'super_admin') {
+    return Response.json(
+      { error: 'Only a super administrator can change account roles.' },
+      { status: 403 }
+    );
+  }
+
   if (isMySqlGatewayEnabled()) {
     try {
       const result = await updateUserRoleThroughGateway({
         userId,
         role: parsed.data.role,
         adminId: admin.id,
+        adminRole: admin.role,
       });
       return Response.json(result.body, { status: result.status });
     } catch (error) {
@@ -72,21 +81,21 @@ export async function PATCH(
       return Response.json({ error: 'User account not found.' }, { status: 404 });
     }
 
-    if (target.role === 'admin' && parsed.data.role !== 'admin') {
+    if (target.role === 'super_admin' && parsed.data.role !== 'super_admin') {
       if (target.user_id === admin.id) {
         await connection.rollback();
         return Response.json(
-          { error: 'You cannot remove administrator access from your own account.' },
+          { error: 'You cannot remove super administrator access from your own account.' },
           { status: 409 }
         );
       }
       const [admins] = await connection.execute<UserIdRow[]>(
-        "SELECT user_id FROM website_users WHERE role = 'admin' FOR UPDATE"
+        "SELECT user_id FROM website_users WHERE role = 'super_admin' FOR UPDATE"
       );
       if (admins.length <= 1) {
         await connection.rollback();
         return Response.json(
-          { error: 'The last administrator cannot be demoted.' },
+          { error: 'The last super administrator cannot be demoted.' },
           { status: 409 }
         );
       }
