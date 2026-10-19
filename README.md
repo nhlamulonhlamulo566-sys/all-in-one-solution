@@ -21,6 +21,35 @@ Staff dashboards refresh their MySQL data automatically.
    to alter existing tables.
 3. Start the development server with `npm run dev`.
 
+### Provisioning an isolated database for another app
+
+The database provisioner creates one `app_<name>` database and one matching
+MySQL user, grants that user privileges only on its own database, generates a
+random password, and writes the app's connection settings to a private file
+under `~/.aio-app-databases/`. It refuses to reuse existing database names or
+overwrite saved credentials.
+
+1. Copy [`database-gateway/provisioner.env.example`](./database-gateway/provisioner.env.example)
+   to `.env.provisioner` in the repository root. Enter a dedicated database
+   administrator account with `CREATE DATABASE`, `CREATE USER`, and `GRANT
+   OPTION` privileges. Configure `DB_PROVISIONER_APP_HOST` as the private
+   address or subnet used by the app's database gateway; never use the
+   unrestricted `%` host.
+2. Run `npm run db:provision -- --app <name>` (for example,
+   `npm run db:provision -- --app customer-portal`). The name must be 1-16
+   lowercase letters, digits, or hyphens and start with a letter. Use
+   `--dry-run` to check the proposed database, user, and output path without
+   connecting to MySQL.
+3. Configure the generated `DB_*` values in the new app's private gateway
+   service and hosting environment. The provisioner does not publish MySQL or
+   automatically change Cloudflare/Vercel settings; keep using the HTTPS
+   gateway rather than exposing MySQL to the internet.
+
+The generated credential file is private to the current Windows account (or
+owner account on Unix-like systems). Keep `.env.provisioner` private and out of
+source control. The database connection uses verified TLS when a CA is
+provided; without one it allows unverified TLS for self-signed certificates.
+
 ### Vercel access to a locally hosted MySQL database
 
 Vercel functions cannot open a raw MySQL connection through a standard

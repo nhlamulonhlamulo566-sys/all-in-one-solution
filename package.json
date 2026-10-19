@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "db-gateway": "node database-gateway/server.mjs",
+    "db:provision": "node scripts/provision-app-db.mjs",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
     "typecheck": "tsc --noEmit"
   },
