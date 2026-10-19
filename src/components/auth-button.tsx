@@ -61,17 +61,18 @@ export default function AuthButton({
           </>
         )}
         {isAdministratorRole(user.role) && (
-          <Button asChild variant="ghost">
-            <Link href="/admin/users" onClick={onAction}>Team &amp; Access</Link>
-          </Button>
+          <>
+            <Button asChild variant="ghost">
+              <Link href="/admin/content" onClick={onAction}>Public Page Content</Link>
+            </Button>
+            <Button asChild variant="ghost">
+              <Link href="/admin/users" onClick={onAction}>Team &amp; Access</Link>
+            </Button>
+          </>
         )}
       </>
     );
   }
 
-  return (
-    <Button asChild>
-      <Link href="/login" onClick={onAction}>Staff Login</Link>
-    </Button>
-  );
+  return null;
 }

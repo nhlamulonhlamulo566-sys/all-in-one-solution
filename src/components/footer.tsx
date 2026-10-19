@@ -143,7 +143,12 @@ export default function Footer() {
               &copy; {new Date().getFullYear()} All In One Solution. All rights
               reserved.
             </p>
-            <Link href="/login" className="text-muted-foreground hover:text-primary" aria-label="Staff Login">
+            <Link
+              href="/login"
+              title="Staff sign-in"
+              className="rounded-full opacity-40 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+              aria-label="Staff sign-in"
+            >
                 <div className="w-2 h-2 bg-muted-foreground rounded-full" />
             </Link>
           </div>

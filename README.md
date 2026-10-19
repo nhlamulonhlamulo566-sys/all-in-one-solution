@@ -6,7 +6,22 @@ Customer quotations, callback requests, contact messages, staff accounts,
 announcements, chat sessions, and chat messages are stored in the
 `allinonesolution` MySQL database. The customer-request dashboard at `/admin`
 shows the incoming leads, request totals, and 14-day live activity chart.
-Staff dashboards refresh their MySQL data automatically.
+Staff dashboards refresh their MySQL data automatically. Announcement and
+request timestamps are displayed in South African time.
+
+Administrators can update the About page leadership heading and introduction
+from `/admin/content`. Only administrators and super administrators can save
+changes; the public About page reads the saved text from MySQL.
+
+The Instant Quotation Calculator uses fixed, budget-conscious starter estimates
+in South African rand rather than random prices: standard websites R3,500,
+e-commerce R14,000, POS systems R18,000, and custom web apps R25,000 before
+VAT. Other services start at R1,500, R3,500, or R7,500 depending on project
+scale. Support starts at R200/month for other services and R250/month for
+standard websites; hosting is R250/month for websites and R350/month for
+databases. Expedited work adds 30%, advanced customization adds 25%, and
+annual support/hosting is billed at ten monthly instalments. These are
+preliminary estimates; confirm scope and the final amount in a written quote.
 
 ### Configure and run
 
@@ -17,8 +32,9 @@ Staff dashboards refresh their MySQL data automatically.
    and `NEXT_PUBLIC_` variables.
 2. Use [`database/schema.sql`](./database/schema.sql) as the database schema
    reference. Existing deployments must also have the MySQL-auth tables and
-   chat-column migration applied; do not rely on `CREATE TABLE IF NOT EXISTS`
-   to alter existing tables.
+   required migrations applied; do not rely on `CREATE TABLE IF NOT EXISTS` to
+   alter existing tables. Apply [`database/migrations/005-about-leadership-content.sql`](./database/migrations/005-about-leadership-content.sql)
+   to existing databases before using the editable About page content.
 3. Start the development server with `npm run dev`.
 
 ### Provisioning an isolated database for another app
@@ -107,6 +123,18 @@ administrator. `/admin/users` then lets super administrators manage the team.
 The runtime MySQL identity needs `SELECT` and `INSERT` on `website_users`, plus
 permission to update only its `role` column; do not grant unrestricted table
 updates just for the role manager.
+
+For editable About page content, the runtime database identity also needs
+`SELECT` and `UPDATE` on `website_page_content`. Apply its migration using a
+database administrator; the app account should not receive schema-change
+privileges.
+
+The public header does not expose a staff login button. A small footer dot is
+kept as a discreet sign-in shortcut. Hiding a login link is not an access
+control: staff APIs and admin pages must continue to enforce authenticated
+sessions and roles. For an additional security layer, put staff routes behind
+Cloudflare Access (or host a separate staff subdomain with the same identity
+and authorization checks); a separate URL alone does not secure the app.
 
 ### Announcements, chat, and former Firebase data
 

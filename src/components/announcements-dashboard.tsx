@@ -36,8 +36,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from './ui/skeleton';
 import { PlusCircle, Trash2 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { formatSouthAfricanDate } from '@/lib/dates';
 
 const announcementSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters.').max(200),
@@ -254,7 +254,10 @@ export default function AnnouncementsDashboard() {
             <div className="flex-grow">
               <h4 className="font-semibold">{announcement.title}</h4>
               <p className="text-sm text-muted-foreground">
-                {format(parseISO(announcement.created_at), 'PPP')} -{' '}
+                {formatSouthAfricanDate(announcement.created_at, {
+                  dateStyle: 'long',
+                })}{' '}
+                -{' '}
                 <span className="capitalize">{announcement.category}</span>
               </p>
             </div>

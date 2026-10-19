@@ -63,11 +63,33 @@ const supportPlanFactors = {
 };
 
 const hostingCosts = {
-  website: 500,
-  database: 800,
+  website: 250,
+  database: 350,
 };
 
 const VAT_RATE = 0.15;
+const zarFormatter = new Intl.NumberFormat('en-ZA', {
+  style: 'currency',
+  currency: 'ZAR',
+  maximumFractionDigits: 0,
+});
+
+const webProjectPrices = {
+  standard: { base: 3500, support: 250 },
+  ecommerce: { base: 14000, support: 750 },
+  pos: { base: 18000, support: 900 },
+  custom: { base: 25000, support: 1200 },
+};
+
+const generalProjectPrices = {
+  small: { base: 1500, support: 200 },
+  medium: { base: 3500, support: 400 },
+  large: { base: 7500, support: 800 },
+};
+
+function roundRand(amount: number) {
+  return Math.round(amount);
+}
 
 type Estimate = {
   oneTime: { subtotal: number; vat: number; total: number };
@@ -122,66 +144,58 @@ export default function QuotationCalculator({
     let supportBase = 0;
 
     if ('projectType' in data) { // Web Development
-      const projectTypeFactors = {
-        standard: { base: 4000, range: 2000, support: 300 },
-        ecommerce: { base: 25000, range: 15000, support: 2000 },
-        pos: { base: 40000, range: 20000, support: 3000 },
-        custom: { base: 60000, range: 40000, support: 4000 },
-      };
-      const factors = projectTypeFactors[data.projectType];
-      oneTimeSubtotal = factors.base + Math.random() * factors.range;
-      supportBase = factors.support;
-      
-      if (data.websiteHosting) oneTimeSubtotal += hostingCosts.website * 12; // Initial annual cost
-      if (data.databaseHosting) oneTimeSubtotal += hostingCosts.database * 12; // Initial annual cost
+      const prices = webProjectPrices[data.projectType];
+      oneTimeSubtotal = prices.base;
+      supportBase = prices.support;
 
     } else if ('projectScale' in data) { // General Services
-      const scaleFactors = {
-        small: { base: 2000, range: 1500, support: 250 },
-        medium: { base: 5000, range: 3000, support: 600 },
-        large: { base: 12000, range: 8000, support: 1500 },
-      };
-      const scale = scaleFactors[data.projectScale];
-      oneTimeSubtotal = scale.base + Math.random() * scale.range;
-      supportBase = scale.support;
+      const prices = generalProjectPrices[data.projectScale];
+      oneTimeSubtotal = prices.base;
+      supportBase = prices.support;
 
       if (data.advancedCustomization) {
         oneTimeSubtotal *= 1.25;
       }
     }
     
-    oneTimeSubtotal *= timelineFactors[data.timeline];
-
     let recurringSubtotal = 0;
     let recurringPeriod = '';
     if (data.supportPlan !== 'none') {
-        const plan = supportPlanFactors[data.supportPlan];
-        recurringSubtotal = supportBase * plan.multiplier;
-        recurringPeriod = data.supportPlan === 'monthly' ? '/month' : '/year';
+      const plan = supportPlanFactors[data.supportPlan];
+      recurringSubtotal = supportBase * plan.multiplier;
+      recurringPeriod = data.supportPlan === 'monthly' ? '/month' : '/year';
     }
-     if ('projectType' in data && data.supportPlan !== 'none') {
-        if (data.websiteHosting) recurringSubtotal += hostingCosts.website;
-        if (data.databaseHosting) recurringSubtotal += hostingCosts.database;
-        if(data.supportPlan === 'yearly') recurringSubtotal *= 10; // Apply yearly discount to hosting too
+    if ('projectType' in data) {
+      const monthlyHosting =
+        (data.websiteHosting ? hostingCosts.website : 0) +
+        (data.databaseHosting ? hostingCosts.database : 0);
+      if (monthlyHosting > 0) {
+        const hostingMultiplier = data.supportPlan === 'yearly' ? 10 : 1;
+        recurringSubtotal += monthlyHosting * hostingMultiplier;
+        recurringPeriod ||= data.supportPlan === 'yearly' ? '/year' : '/month';
+      }
     }
 
-
-    const oneTimeVat = oneTimeSubtotal * VAT_RATE;
-    const recurringVat = recurringSubtotal * VAT_RATE;
+    const roundedOneTimeSubtotal = roundRand(
+      oneTimeSubtotal * timelineFactors[data.timeline]
+    );
+    const roundedRecurringSubtotal = roundRand(recurringSubtotal);
+    const oneTimeVat = roundRand(roundedOneTimeSubtotal * VAT_RATE);
+    const recurringVat = roundRand(roundedRecurringSubtotal * VAT_RATE);
 
     setFormData(data);
     setEstimate({
       oneTime: {
-        subtotal: Math.round(oneTimeSubtotal / 10) * 10,
-        vat: Math.round(oneTimeVat / 10) * 10,
-        total: Math.round((oneTimeSubtotal + oneTimeVat) / 10) * 10,
+        subtotal: roundedOneTimeSubtotal,
+        vat: oneTimeVat,
+        total: roundedOneTimeSubtotal + oneTimeVat,
       },
       recurring: {
-        subtotal: Math.round(recurringSubtotal / 10) * 10,
-        vat: Math.round(recurringVat / 10) * 10,
-        total: Math.round((recurringSubtotal + recurringVat) / 10) * 10,
+        subtotal: roundedRecurringSubtotal,
+        vat: recurringVat,
+        total: roundedRecurringSubtotal + recurringVat,
       },
-      recurringPeriod: recurringPeriod,
+      recurringPeriod,
     });
   }
 
@@ -237,8 +251,9 @@ export default function QuotationCalculator({
           Instant Quotation Calculator
         </CardTitle>
         <CardDescription>
-          Get a quick estimate for our {serviceName} service. Adjust the
-          options below to match your needs.
+          Get a budget-conscious estimate in South African rand for our {serviceName}
+          service. Your final written quotation will be confirmed after we review
+          your requirements.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -247,15 +262,15 @@ export default function QuotationCalculator({
             <div className="text-center">
               <p className="text-muted-foreground">Estimated Total One-Time Cost</p>
               <p className="text-5xl font-bold tracking-tight text-primary">
-                R {estimate.oneTime.total.toLocaleString()}
+                {zarFormatter.format(estimate.oneTime.total)}
               </p>
                <p className="text-muted-foreground text-sm mt-1">(Including 15% VAT)</p>
               
               {estimate.recurring.total > 0 && (
                  <div className="mt-6">
-                    <p className="text-muted-foreground">Estimated Total Support Cost</p>
+                    <p className="text-muted-foreground">Estimated Recurring Cost</p>
                      <p className="text-3xl font-bold text-primary">
-                        + R {estimate.recurring.total.toLocaleString()}{estimate.recurringPeriod}
+                        + {zarFormatter.format(estimate.recurring.total)}{estimate.recurringPeriod}
                     </p>
                     <p className="text-muted-foreground text-sm mt-1">(Including 15% VAT)</p>
                  </div>
@@ -275,21 +290,23 @@ export default function QuotationCalculator({
                 <CardFooter className="flex-col items-start gap-2 pt-4 text-sm">
                     <div className="font-semibold text-base">Cost Breakdown:</div>
                     <div className="w-full">
-                        <div className="flex justify-between"><span>One-Time Subtotal:</span> <span className="font-medium">R {estimate.oneTime.subtotal.toLocaleString()}</span></div>
-                        <div className="flex justify-between"><span>VAT (15%):</span> <span className="font-medium">R {estimate.oneTime.vat.toLocaleString()}</span></div>
-                        <div className="flex justify-between font-bold border-t mt-1 pt-1"><span>One-Time Total:</span> <span>R {estimate.oneTime.total.toLocaleString()}</span></div>
+                        <div className="flex justify-between"><span>One-Time Subtotal:</span> <span className="font-medium">{zarFormatter.format(estimate.oneTime.subtotal)}</span></div>
+                        <div className="flex justify-between"><span>VAT (15%):</span> <span className="font-medium">{zarFormatter.format(estimate.oneTime.vat)}</span></div>
+                        <div className="flex justify-between font-bold border-t mt-1 pt-1"><span>One-Time Total:</span> <span>{zarFormatter.format(estimate.oneTime.total)}</span></div>
                     </div>
                      {estimate.recurring.total > 0 && (
                         <div className="w-full mt-2">
-                            <div className="flex justify-between"><span>Support & Hosting Subtotal:</span> <span className="font-medium">R {estimate.recurring.subtotal.toLocaleString()}{estimate.recurringPeriod}</span></div>
-                            <div className="flex justify-between"><span>Support & Hosting VAT (15%):</span> <span className="font-medium">R {estimate.recurring.vat.toLocaleString()}{estimate.recurringPeriod}</span></div>
-                            <div className="flex justify-between font-bold border-t mt-1 pt-1"><span>Support & Hosting Total:</span> <span>R {estimate.recurring.total.toLocaleString()}{estimate.recurringPeriod}</span></div>
+                            <div className="flex justify-between"><span>Support & Hosting Subtotal:</span> <span className="font-medium">{zarFormatter.format(estimate.recurring.subtotal)}{estimate.recurringPeriod}</span></div>
+                            <div className="flex justify-between"><span>Support & Hosting VAT (15%):</span> <span className="font-medium">{zarFormatter.format(estimate.recurring.vat)}{estimate.recurringPeriod}</span></div>
+                            <div className="flex justify-between font-bold border-t mt-1 pt-1"><span>Support & Hosting Total:</span> <span>{zarFormatter.format(estimate.recurring.total)}{estimate.recurringPeriod}</span></div>
                         </div>
                      )}
                 </CardFooter>
             </Card>
             <div className="text-center text-xs text-muted-foreground">
-                This is a preliminary estimate. For a detailed and binding quotation, please contact us directly.
+                Includes 15% VAT. Hosting, when selected, is billed with the support
+                plan; annual plans include two months free. Third-party products,
+                licences and substantial integrations may affect the final quote.
             </div>
             <Button className="w-full" onClick={handleRecalculate}>
                 <RefreshCw className="mr-2 h-4 w-4" />
@@ -352,8 +369,8 @@ export default function QuotationCalculator({
                                     />
                                 </FormControl>
                                 <div className="space-y-1 leading-none">
-                                    <FormLabel>Website Hosting</FormLabel>
-                                    <FormDescription>Reliable and fast hosting for your site or application.</FormDescription>
+                                    <FormLabel>Website Hosting ({zarFormatter.format(hostingCosts.website)}/month)</FormLabel>
+                                    <FormDescription>Reliable hosting for your site or application.</FormDescription>
                                 </div>
                                 </FormItem>
                             )}
@@ -371,8 +388,8 @@ export default function QuotationCalculator({
                                     />
                                 </FormControl>
                                 <div className="space-y-1 leading-none">
-                                    <FormLabel>Database Hosting</FormLabel>
-                                    <FormDescription>Secure and scalable hosting for your application&apos;s data.</FormDescription>
+                                    <FormLabel>Database Hosting ({zarFormatter.format(hostingCosts.database)}/month)</FormLabel>
+                                    <FormDescription>Secure hosting for your application&apos;s data.</FormDescription>
                                 </div>
                                 </FormItem>
                             )}

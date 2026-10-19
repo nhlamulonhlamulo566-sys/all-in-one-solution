@@ -3,35 +3,20 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Zap, Eye, Goal, Building, Users, Rocket, HeartHandshake, Target, Handshake } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getAboutLeadershipContent } from '@/lib/about-content';
 
-const teamMembers = [
-  {
-    name: 'Alex Johnson',
-    role: 'Founder & CEO',
-    imageId: 'team-member-1',
-    imageHint: 'professional portrait',
-  },
-  {
-    name: 'Samantha Lee',
-    role: 'Head of Technology',
-    imageId: 'team-member-2',
-    imageHint: 'professional portrait',
-  },
-  {
-    name: 'David Chen',
-    role: 'Lead Designer',
-    imageId: 'team-member-3',
-    imageHint: 'professional portrait',
-  },
-  {
-    name: 'Maria Garcia',
-    role: 'Business Strategy Lead',
-    imageId: 'team-member-4',
-    imageHint: 'professional portrait',
-  },
-];
+export const dynamic = 'force-dynamic';
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  let leadershipContent: Awaited<
+    ReturnType<typeof getAboutLeadershipContent>
+  > | null = null;
+  try {
+    leadershipContent = await getAboutLeadershipContent();
+  } catch (error) {
+    console.error('Unable to load About page leadership content.', error);
+  }
+
   const heroImage = PlaceHolderImages.find((img) => img.id === 'service-detail-hero');
   return (
     <div>
@@ -207,46 +192,24 @@ export default function AboutPage() {
       </section>
 
       <section className="container mx-auto py-16 px-4">
-        <div className="text-center max-w-4xl mx-auto mb-12">
+        <div className="mx-auto max-w-4xl text-center">
           <div className="inline-block bg-primary/10 p-4 rounded-full mb-4">
             <Users className="w-10 h-10 text-primary" />
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">
-            Meet Our Leadership
-          </h2>
-          <p className="text-lg text-muted-foreground break-words">
-            The driving force behind our mission is a team of passionate experts
-            dedicated to your success.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {teamMembers.map((member) => {
-            const image = PlaceHolderImages.find(
-              (img) => img.id === member.imageId
-            );
-            return (
-              <Card
-                key={member.name}
-                className="text-center overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
-              >
-                <div className="relative h-56 bg-secondary">
-                  {image && (
-                    <Image
-                      src={image.imageUrl}
-                      alt={member.name}
-                      fill
-                      className="object-cover"
-                      data-ai-hint={member.imageHint}
-                    />
-                  )}
-                </div>
-                <CardContent className="p-4">
-                  <h3 className="text-lg font-bold">{member.name}</h3>
-                  <p className="text-sm text-primary">{member.role}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {leadershipContent ? (
+            <>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">
+                {leadershipContent.heading}
+              </h2>
+              <p className="text-lg text-muted-foreground break-words whitespace-pre-line">
+                {leadershipContent.description}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Leadership information is temporarily unavailable.
+            </p>
+          )}
         </div>
       </section>
 

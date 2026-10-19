@@ -6,7 +6,6 @@ import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import ContactForm from '@/components/contact-form';
-import Testimonials from '@/components/testimonials';
 import AiFaq from '@/components/ai-faq';
 import { ChevronRight } from 'lucide-react';
 import QuotationCalculator from '@/components/quotation-calculator';
@@ -89,8 +88,6 @@ export default async function ServiceDetailPage({
                 </div>
               </>
             )}
-
-            <Testimonials testimonials={service.testimonials} />
 
             <AiFaq serviceDetails={service.longDescription} />
           </div>

@@ -10,8 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Megaphone } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
-import { parseISO } from 'date-fns';
+import { formatSouthAfricanDate } from '@/lib/dates';
 
 type Announcement = {
   announcement_id: string;
@@ -105,7 +104,9 @@ export default function AnnouncementsPage() {
                     </CardTitle>
                   </div>
                   <p className="text-sm text-muted-foreground flex-shrink-0 pt-1">
-                    {format(parseISO(announcement.created_at), 'PPP')}
+                    {formatSouthAfricanDate(announcement.created_at, {
+                      dateStyle: 'long',
+                    })}
                   </p>
                 </div>
               </CardHeader>

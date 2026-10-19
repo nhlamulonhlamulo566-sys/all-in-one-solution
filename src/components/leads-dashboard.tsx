@@ -10,7 +10,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { format, parseISO } from 'date-fns';
 import {
   Activity,
   ArrowUpRight,
@@ -33,6 +32,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatSouthAfricanDate, southAfricanDateKey } from '@/lib/dates';
 
 type Lead = {
   request_id: number;
@@ -172,14 +172,20 @@ export default function LeadsDashboard({
   }, [refresh]);
 
   const chartData = useMemo(() => {
+    const [year, month, dayOfMonth] = southAfricanDateKey()
+      .split('-')
+      .map(Number);
     const days = Array.from({ length: 14 }, (_, index) => {
-      const date = new Date();
-      date.setHours(0, 0, 0, 0);
-      date.setDate(date.getDate() - 13 + index);
-      const day = format(date, 'yyyy-MM-dd');
+      const date = new Date(
+        Date.UTC(year, month - 1, dayOfMonth - 13 + index, 12)
+      );
+      const day = date.toISOString().slice(0, 10);
       return {
         day,
-        date: format(date, 'MMM d'),
+        date: formatSouthAfricanDate(`${day}T12:00:00+02:00`, {
+          month: 'short',
+          day: 'numeric',
+        }),
         quotations: 0,
         callbacks: 0,
         messages: 0,
@@ -366,7 +372,7 @@ export default function LeadsDashboard({
                     : lead.request_type === 'callback'
                       ? 'Call back'
                       : 'Message';
-                const submittedAt = parseISO(lead.created_at);
+                const submittedAt = lead.created_at;
 
                 return (
                   <article
@@ -420,11 +426,11 @@ export default function LeadsDashboard({
                         <p className="text-xs text-muted-foreground">
                           Assigned to: <span className="font-medium text-foreground">{lead.assigned_to || 'Unassigned'}</span>
                           {' · '}Read by: <span className="font-medium text-foreground">{lead.read_by || 'Not marked read'}</span>
-                          {lead.read_at && <> at {format(parseISO(lead.read_at), 'MMM d, h:mm a')}</>}
+                          {lead.read_at && <> at {formatSouthAfricanDate(lead.read_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</>}
                           {lead.last_action_by && (
                             <> · Last action by <span className="font-medium text-foreground">{lead.last_action_by}</span>
                               {lead.last_action_type === 'read' ? ' (read)' : ''}
-                              {lead.last_action_at && <> at {format(parseISO(lead.last_action_at), 'MMM d, h:mm a')}</>}
+                              {lead.last_action_at && <> at {formatSouthAfricanDate(lead.last_action_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</>}
                             </>
                           )}
                         </p>
@@ -492,7 +498,13 @@ export default function LeadsDashboard({
                       </div>
                     </div>
                     <time className="shrink-0 text-sm text-muted-foreground">
-                      {format(submittedAt, 'MMM d, yyyy · h:mm a')}
+                      {formatSouthAfricanDate(submittedAt, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
                     </time>
                   </article>
                 );

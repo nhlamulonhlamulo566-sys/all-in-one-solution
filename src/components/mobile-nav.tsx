@@ -98,13 +98,22 @@ export default function MobileNav() {
                     Announcements
                 </Link>
                 {user && isAdministratorRole(user.role) && (
-                    <Link
-                      href="/admin/users"
-                      className="hover:text-primary w-full p-3 rounded-md transition-colors"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Team &amp; Access
-                    </Link>
+                    <>
+                      <Link
+                        href="/admin/content"
+                        className="hover:text-primary w-full p-3 rounded-md transition-colors"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Public Page Content
+                      </Link>
+                      <Link
+                        href="/admin/users"
+                        className="hover:text-primary w-full p-3 rounded-md transition-colors"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Team &amp; Access
+                      </Link>
+                    </>
                 )}
               </>
             )}
