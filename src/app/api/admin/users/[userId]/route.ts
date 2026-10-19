@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import type { RowDataPacket } from 'mysql2';
-import { getMySqlPool } from '@/lib/mysql';
+import {
+  getMySqlConnection,
+  isMySqlGatewayEnabled,
+  updateUserRoleThroughGateway,
+} from '@/lib/mysql';
 import { isResponse, requireAdmin } from '@/lib/staff-api';
 
 export const runtime = 'nodejs';
@@ -41,7 +45,21 @@ export async function PATCH(
     return Response.json({ error: 'Choose a valid account role.' }, { status: 400 });
   }
 
-  const connection = await getMySqlPool().getConnection();
+  if (isMySqlGatewayEnabled()) {
+    try {
+      const result = await updateUserRoleThroughGateway({
+        userId,
+        role: parsed.data.role,
+        adminId: admin.id,
+      });
+      return Response.json(result.body, { status: result.status });
+    } catch (error) {
+      console.error('Failed to update a MySQL user role through the database gateway.', error);
+      return Response.json({ error: 'Unable to update this user right now.' }, { status: 503 });
+    }
+  }
+
+  const connection = await getMySqlConnection();
   try {
     await connection.beginTransaction();
     const [users] = await connection.execute<RoleRow[]>(

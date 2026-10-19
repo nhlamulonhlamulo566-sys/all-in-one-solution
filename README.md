@@ -10,18 +10,40 @@ Staff dashboards refresh their MySQL data automatically.
 
 ### Configure and run
 
-1. Set `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` (normally
-   `allinonesolution`) in `.env.local`. `GEMINI_API_KEY` is required for the AI
-   FAQ endpoint. Keep all values server-side and out of source control and
-   `NEXT_PUBLIC_` variables. MySQL connections use TLS encryption but do not
-   verify the server certificate, so a trusted CA is not required. This makes
-   the connection vulnerable to interception by an active attacker; use only
-   on a network you trust.
+1. For local development, set `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`,
+   and `DB_NAME` (normally `allinonesolution`) in `.env.local`. Vercel uses the
+   HTTPS database gateway described below. `GEMINI_API_KEY` is required for
+   the AI FAQ endpoint. Keep all values server-side and out of source control
+   and `NEXT_PUBLIC_` variables.
 2. Use [`database/schema.sql`](./database/schema.sql) as the database schema
    reference. Existing deployments must also have the MySQL-auth tables and
    chat-column migration applied; do not rely on `CREATE TABLE IF NOT EXISTS`
    to alter existing tables.
 3. Start the development server with `npm run dev`.
+
+### Vercel access to a locally hosted MySQL database
+
+Vercel functions cannot open a raw MySQL connection through a standard
+Cloudflare Tunnel TCP hostname. Run the restricted HTTPS gateway in
+`database-gateway/server.mjs` on the MySQL host and configure a separate
+Cloudflare Tunnel public hostname (for example, `db-api.example.com`) to route
+HTTPS requests to `http://localhost:8787`.
+
+On the MySQL host, install the project dependencies, set its existing
+`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` values plus a
+random `DB_GATEWAY_TOKEN` of at least 32 characters, then run
+`npm run db-gateway`. Keep the gateway bound to localhost and expose it only
+through Cloudflare Tunnel. For a named tunnel, add a public hostname such as
+`db-api.example.com` and route its service to `http://localhost:8787`. Add
+`DB_GATEWAY_URL` (for example, `https://db-api.example.com`) and the same
+`DB_GATEWAY_TOKEN` to the Vercel Production environment, then redeploy.
+Only SQL statements extracted from the app's literal query strings are
+accepted by the gateway. Do not expose its token to browser code.
+
+The gateway uses TLS between the browser-independent app server and Cloudflare,
+and Cloudflare Tunnel encrypts traffic to the MySQL host. Configure a trusted
+CA for the MySQL host connection when possible; unverified TLS is supported for
+self-signed local certificates but does not authenticate the database server.
 
 ### MySQL accounts and staff roles
 
