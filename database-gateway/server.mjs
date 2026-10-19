@@ -15,6 +15,7 @@ dotenv.config({ path: join(root, '.env'), override: false });
 
 const token = process.env.DB_GATEWAY_TOKEN;
 const port = Number(process.env.DB_GATEWAY_PORT || 8787);
+const host = process.env.DB_GATEWAY_HOST || '127.0.0.1';
 const maxBodyBytes = 1024 * 1024;
 
 if (!token || Buffer.byteLength(token) < 32) {
@@ -209,8 +210,8 @@ const server = createServer(async (request, response) => {
 });
 
 server.on('clientError', (_error, socket) => socket.end('HTTP/1.1 400 Bad Request\r\n\r\n'));
-server.listen(port, '127.0.0.1', () => {
-  console.log(`Database gateway listening on 127.0.0.1:${port}; ${allowedQueryHashes.size} application queries allowlisted.`);
+server.listen(port, host, () => {
+  console.log(`Database gateway listening on ${host}:${port}; ${allowedQueryHashes.size} application queries allowlisted.`);
 });
 
 async function shutdown() {
