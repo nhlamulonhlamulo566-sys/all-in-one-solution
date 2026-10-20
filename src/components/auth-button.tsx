@@ -11,9 +11,11 @@ import { ChevronDown } from 'lucide-react';
 export default function AuthButton({
   onAction,
   compact = false,
+  showStaffLinks = true,
 }: {
   onAction?: () => void;
   compact?: boolean;
+  showStaffLinks?: boolean;
 } = {}) {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
@@ -58,7 +60,7 @@ export default function AuthButton({
     if (compact) {
       return (
         <>
-          {adminLinks.length > 0 && (
+          {showStaffLinks && adminLinks.length > 0 && (
             <details className="group relative">
               <summary className="flex h-10 cursor-pointer list-none items-center rounded-md px-4 text-sm font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
                 Staff tools
@@ -93,7 +95,7 @@ export default function AuthButton({
         <Button onClick={handleLogout} variant="outline">
           Logout
         </Button>
-        {isStaffRole(user.role) && (
+        {showStaffLinks && isStaffRole(user.role) && (
           <>
             {adminLinks.slice(0, 5).map(({ href, label }) => (
               <Button asChild variant="ghost" key={href}>
@@ -102,7 +104,7 @@ export default function AuthButton({
             ))}
           </>
         )}
-        {isAdministratorRole(user.role) && adminLinks.slice(5).map(({ href, label }) => (
+        {showStaffLinks && isAdministratorRole(user.role) && adminLinks.slice(5).map(({ href, label }) => (
           <Button asChild variant="ghost" key={href}>
             <Link href={href} onClick={onAction}>{label}</Link>
           </Button>

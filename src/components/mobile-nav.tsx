@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -36,6 +37,9 @@ export default function MobileNav() {
           </Link>
           <SheetTitle className="sr-only">Mobile Navigation</SheetTitle>
         </SheetHeader>
+        <SheetDescription className="sr-only">
+          Navigate public pages and staff tools.
+        </SheetDescription>
         <div className="flex flex-col h-full">
           <nav className="flex flex-col items-start gap-2 text-lg font-medium">
             <Link
@@ -121,7 +125,7 @@ export default function MobileNav() {
           <div className="mt-auto pt-4">
              <Separator className="mb-4" />
             <div className="flex w-full flex-col gap-2">
-              <AuthButton onAction={() => setIsOpen(false)} />
+              <AuthButton onAction={() => setIsOpen(false)} showStaffLinks={false} />
             </div>
           </div>
         </div>
