@@ -14,7 +14,7 @@ export default function Header() {
         >
           <Logo />
         </Link>
-        <nav className="hidden md:flex flex-wrap items-center justify-end gap-2">
+        <nav className="hidden lg:flex items-center justify-end gap-2">
           <Button asChild variant="ghost">
             <Link href="/about">About Us</Link>
           </Button>
@@ -25,10 +25,10 @@ export default function Header() {
             <Link href="/contact">Contact Us</Link>
           </Button>
           <div className="flex items-center gap-2 pl-2 ml-2 border-l">
-            <AuthButton />
+            <AuthButton compact />
           </div>
         </nav>
-        <div className="md:hidden">
+        <div className="lg:hidden">
             <MobileNav />
         </div>
       </div>

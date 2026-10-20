@@ -6,11 +6,14 @@ import { useAuth, useUser } from '@/auth/provider';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from './ui/skeleton';
 import { isAdministratorRole, isStaffRole } from '@/lib/roles';
+import { ChevronDown } from 'lucide-react';
 
 export default function AuthButton({
   onAction,
+  compact = false,
 }: {
   onAction?: () => void;
+  compact?: boolean;
 } = {}) {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
@@ -36,6 +39,55 @@ export default function AuthButton({
   }
 
   if (user) {
+    const adminLinks = isStaffRole(user.role)
+      ? [
+          { href: '/admin', label: 'Lead Dashboard' },
+          { href: '/admin/chat', label: 'Admin Chat' },
+          { href: '/admin/submissions', label: 'Submissions' },
+          { href: '/admin/quotations', label: 'Quotations' },
+          { href: '/admin/announcements', label: 'Announcements' },
+          ...(isAdministratorRole(user.role)
+            ? [
+                { href: '/admin/content', label: 'Public Page Content' },
+                { href: '/admin/users', label: 'Team & Access' },
+              ]
+            : []),
+        ]
+      : [];
+
+    if (compact) {
+      return (
+        <>
+          {adminLinks.length > 0 && (
+            <details className="group relative">
+              <summary className="flex h-10 cursor-pointer list-none items-center rounded-md px-4 text-sm font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                Staff tools
+                <ChevronDown aria-hidden="true" className="ml-2 h-4 w-4" />
+              </summary>
+              <nav
+                aria-label="Staff tools"
+                className="absolute right-0 top-full z-50 mt-2 flex min-w-52 flex-col rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+              >
+                {adminLinks.map(({ href, label }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={onAction}
+                    className="rounded-sm px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            </details>
+          )}
+          <Button onClick={handleLogout} variant="outline">
+            Logout
+          </Button>
+        </>
+      );
+    }
+
     return (
       <>
         <Button onClick={handleLogout} variant="outline">
@@ -43,33 +95,18 @@ export default function AuthButton({
         </Button>
         {isStaffRole(user.role) && (
           <>
-            <Button asChild variant="ghost">
-              <Link href="/admin" onClick={onAction}>Lead Dashboard</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/admin/chat" onClick={onAction}>Admin Chat</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/admin/submissions" onClick={onAction}>Submissions</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/admin/quotations" onClick={onAction}>Quotations</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/admin/announcements" onClick={onAction}>Announcements</Link>
-            </Button>
+            {adminLinks.slice(0, 5).map(({ href, label }) => (
+              <Button asChild variant="ghost" key={href}>
+                <Link href={href} onClick={onAction}>{label}</Link>
+              </Button>
+            ))}
           </>
         )}
-        {isAdministratorRole(user.role) && (
-          <>
-            <Button asChild variant="ghost">
-              <Link href="/admin/content" onClick={onAction}>Public Page Content</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/admin/users" onClick={onAction}>Team &amp; Access</Link>
-            </Button>
-          </>
-        )}
+        {isAdministratorRole(user.role) && adminLinks.slice(5).map(({ href, label }) => (
+          <Button asChild variant="ghost" key={href}>
+            <Link href={href} onClick={onAction}>{label}</Link>
+          </Button>
+        ))}
       </>
     );
   }
