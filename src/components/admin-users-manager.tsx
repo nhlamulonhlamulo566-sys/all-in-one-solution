@@ -150,13 +150,13 @@ export default function AdminUsersManager() {
       )}
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)]">
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" />Team directory</CardTitle>
             <CardDescription>Review accounts and grant the access each person needs.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="max-w-full overflow-x-auto">
               <table className="w-full min-w-[38rem] text-left text-sm">
                 <thead>
                   <tr className="border-b text-xs uppercase tracking-wide text-muted-foreground">
@@ -210,7 +210,7 @@ export default function AdminUsersManager() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5 text-primary" />Create an account</CardTitle>
             <CardDescription>Set up a team member and choose their access level.</CardDescription>
