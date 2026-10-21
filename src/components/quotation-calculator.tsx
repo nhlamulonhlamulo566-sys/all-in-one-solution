@@ -34,9 +34,16 @@ const baseSchema = z.object({
 });
 
 const webDevSchema = baseSchema.extend({
-  projectType: z.enum(['standard', 'ecommerce', 'pos', 'custom'], {
+  projectType: z.enum([
+    'standard',
+    'ecommerce',
+    'pos',
+    'custom',
+    'professional-email',
+  ], {
     required_error: 'You need to select a project type.',
   }),
+  emailPlan: z.enum(['small', 'medium', 'large']),
   websiteHosting: z.boolean().default(false),
   databaseHosting: z.boolean().default(false),
 });
@@ -87,6 +94,24 @@ const generalProjectPrices = {
   large: { base: 7500, support: 800 },
 };
 
+const professionalEmailPlans = {
+  small: {
+    label: 'Small (S)',
+    monthlyPrice: 99,
+    description: 'Dedicated business domain email + local IT support line.',
+  },
+  medium: {
+    label: 'Medium (M)',
+    monthlyPrice: 150,
+    description: 'Increased storage pool + active account management.',
+  },
+  large: {
+    label: 'Large (L)',
+    monthlyPrice: 220,
+    description: 'Maximum capacity for growing local teams.',
+  },
+};
+
 function roundRand(amount: number) {
   return Math.round(amount);
 }
@@ -112,6 +137,7 @@ export default function QuotationCalculator({
     defaultValues: isWebDev
       ? {
           projectType: 'standard',
+          emailPlan: 'small',
           timeline: 'standard',
           supportPlan: 'none',
           websiteHosting: false,
@@ -140,14 +166,17 @@ export default function QuotationCalculator({
   }, [projectType, form, isWebDev]);
 
   function calculateEstimate(data: QuotationFormValues) {
+    const isProfessionalEmail =
+      'projectType' in data && data.projectType === 'professional-email';
     let oneTimeSubtotal = 0;
     let supportBase = 0;
 
-    if ('projectType' in data) { // Web Development
-      const prices = webProjectPrices[data.projectType];
-      oneTimeSubtotal = prices.base;
-      supportBase = prices.support;
-
+    if ('projectType' in data) {
+      if (data.projectType !== 'professional-email') {
+        const prices = webProjectPrices[data.projectType];
+        oneTimeSubtotal = prices.base;
+        supportBase = prices.support;
+      }
     } else if ('projectScale' in data) { // General Services
       const prices = generalProjectPrices[data.projectScale];
       oneTimeSubtotal = prices.base;
@@ -160,12 +189,16 @@ export default function QuotationCalculator({
     
     let recurringSubtotal = 0;
     let recurringPeriod = '';
-    if (data.supportPlan !== 'none') {
+    if (isProfessionalEmail && 'projectType' in data) {
+      const monthlyPrice = professionalEmailPlans[data.emailPlan].monthlyPrice;
+      recurringSubtotal = roundRand(monthlyPrice / (1 + VAT_RATE));
+      recurringPeriod = '/month';
+    } else if (data.supportPlan !== 'none') {
       const plan = supportPlanFactors[data.supportPlan];
       recurringSubtotal = supportBase * plan.multiplier;
       recurringPeriod = data.supportPlan === 'monthly' ? '/month' : '/year';
     }
-    if ('projectType' in data) {
+    if ('projectType' in data && !isProfessionalEmail) {
       const monthlyHosting =
         (data.websiteHosting ? hostingCosts.website : 0) +
         (data.databaseHosting ? hostingCosts.database : 0);
@@ -181,7 +214,13 @@ export default function QuotationCalculator({
     );
     const roundedRecurringSubtotal = roundRand(recurringSubtotal);
     const oneTimeVat = roundRand(roundedOneTimeSubtotal * VAT_RATE);
-    const recurringVat = roundRand(roundedRecurringSubtotal * VAT_RATE);
+    const recurringVat = isProfessionalEmail && 'projectType' in data
+      ? professionalEmailPlans[data.emailPlan].monthlyPrice -
+        roundedRecurringSubtotal
+      : roundRand(roundedRecurringSubtotal * VAT_RATE);
+    const recurringTotal = isProfessionalEmail && 'projectType' in data
+      ? professionalEmailPlans[data.emailPlan].monthlyPrice
+      : roundedRecurringSubtotal + recurringVat;
 
     setFormData(data);
     setEstimate({
@@ -193,7 +232,7 @@ export default function QuotationCalculator({
       recurring: {
         subtotal: roundedRecurringSubtotal,
         vat: recurringVat,
-        total: roundedRecurringSubtotal + recurringVat,
+        total: recurringTotal,
       },
       recurringPeriod,
     });
@@ -207,6 +246,23 @@ export default function QuotationCalculator({
 
   const renderSummary = (data: QuotationFormValues) => {
     if ('projectType' in data) {
+      if (data.projectType === 'professional-email') {
+        const plan = professionalEmailPlans[data.emailPlan];
+        return (
+          <>
+            <div className="flex justify-between">
+              <span>Email Plan:</span>
+              <span className="font-medium">{plan.label}</span>
+            </div>
+            <p className="text-muted-foreground">{plan.description}</p>
+            <div className="flex justify-between">
+              <span>Billing:</span>
+              <span className="font-medium">Per month</span>
+            </div>
+          </>
+        );
+      }
+
        const isComplexProject = ['ecommerce', 'pos', 'custom'].includes(data.projectType);
       return (
         <>
@@ -243,6 +299,11 @@ export default function QuotationCalculator({
     return null;
   };
 
+  const isProfessionalEmailEstimate =
+    formData !== null &&
+    'projectType' in formData &&
+    formData.projectType === 'professional-email';
+
   return (
     <Card>
       <CardHeader>
@@ -260,13 +321,25 @@ export default function QuotationCalculator({
         {estimate && formData ? (
            <div className="space-y-6">
             <div className="text-center">
-              <p className="text-muted-foreground">Estimated Total One-Time Cost</p>
-              <p className="text-5xl font-bold tracking-tight text-primary">
-                {zarFormatter.format(estimate.oneTime.total)}
-              </p>
-               <p className="text-muted-foreground text-sm mt-1">(Including 15% VAT)</p>
+              {isProfessionalEmailEstimate ? (
+                <>
+                  <p className="text-muted-foreground">Estimated Professional Email Cost</p>
+                  <p className="text-5xl font-bold tracking-tight text-primary">
+                    {zarFormatter.format(estimate.recurring.total)}/month
+                  </p>
+                  <p className="text-muted-foreground text-sm mt-1">(15% VAT included)</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-muted-foreground">Estimated Total One-Time Cost</p>
+                  <p className="text-5xl font-bold tracking-tight text-primary">
+                    {zarFormatter.format(estimate.oneTime.total)}
+                  </p>
+                  <p className="text-muted-foreground text-sm mt-1">(Including 15% VAT)</p>
+                </>
+              )}
               
-              {estimate.recurring.total > 0 && (
+              {!isProfessionalEmailEstimate && estimate.recurring.total > 0 && (
                  <div className="mt-6">
                     <p className="text-muted-foreground">Estimated Recurring Cost</p>
                      <p className="text-3xl font-bold text-primary">
@@ -283,30 +356,36 @@ export default function QuotationCalculator({
                 <CardContent className="space-y-2 text-sm">
                     <div className="flex justify-between"><span>Service:</span> <span className="font-medium">{serviceName}</span></div>
                     {renderSummary(formData)}
-                    <div className="flex justify-between capitalize"><span>Timeline:</span> <span className="font-medium">{formData.timeline}</span></div>
-                    <div className="flex justify-between capitalize"><span>Support Plan:</span> <span className="font-medium">{supportPlanFactors[formData.supportPlan].label}</span></div>
+                    {!isProfessionalEmailEstimate && (
+                      <>
+                        <div className="flex justify-between capitalize"><span>Timeline:</span> <span className="font-medium">{formData.timeline}</span></div>
+                        <div className="flex justify-between capitalize"><span>Support Plan:</span> <span className="font-medium">{supportPlanFactors[formData.supportPlan].label}</span></div>
+                      </>
+                    )}
                 </CardContent>
                 <Separator />
                 <CardFooter className="flex-col items-start gap-2 pt-4 text-sm">
                     <div className="font-semibold text-base">Cost Breakdown:</div>
-                    <div className="w-full">
+                    {!isProfessionalEmailEstimate && (
+                      <div className="w-full">
                         <div className="flex justify-between"><span>One-Time Subtotal:</span> <span className="font-medium">{zarFormatter.format(estimate.oneTime.subtotal)}</span></div>
                         <div className="flex justify-between"><span>VAT (15%):</span> <span className="font-medium">{zarFormatter.format(estimate.oneTime.vat)}</span></div>
                         <div className="flex justify-between font-bold border-t mt-1 pt-1"><span>One-Time Total:</span> <span>{zarFormatter.format(estimate.oneTime.total)}</span></div>
-                    </div>
+                      </div>
+                    )}
                      {estimate.recurring.total > 0 && (
                         <div className="w-full mt-2">
-                            <div className="flex justify-between"><span>Support & Hosting Subtotal:</span> <span className="font-medium">{zarFormatter.format(estimate.recurring.subtotal)}{estimate.recurringPeriod}</span></div>
-                            <div className="flex justify-between"><span>Support & Hosting VAT (15%):</span> <span className="font-medium">{zarFormatter.format(estimate.recurring.vat)}{estimate.recurringPeriod}</span></div>
-                            <div className="flex justify-between font-bold border-t mt-1 pt-1"><span>Support & Hosting Total:</span> <span>{zarFormatter.format(estimate.recurring.total)}{estimate.recurringPeriod}</span></div>
+                            <div className="flex justify-between"><span>{isProfessionalEmailEstimate ? 'Email plan (excluding VAT):' : 'Support & Hosting Subtotal:'}</span> <span className="font-medium">{zarFormatter.format(estimate.recurring.subtotal)}{estimate.recurringPeriod}</span></div>
+                            <div className="flex justify-between"><span>{isProfessionalEmailEstimate ? 'VAT included (15%):' : 'Support & Hosting VAT (15%):'}</span> <span className="font-medium">{zarFormatter.format(estimate.recurring.vat)}{estimate.recurringPeriod}</span></div>
+                            <div className="flex justify-between font-bold border-t mt-1 pt-1"><span>{isProfessionalEmailEstimate ? 'Email plan total (VAT included):' : 'Support & Hosting Total:'}</span> <span>{zarFormatter.format(estimate.recurring.total)}{estimate.recurringPeriod}</span></div>
                         </div>
                      )}
                 </CardFooter>
             </Card>
             <div className="text-center text-xs text-muted-foreground">
-                Includes 15% VAT. Hosting, when selected, is billed with the support
-                plan; annual plans include two months free. Third-party products,
-                licences and substantial integrations may affect the final quote.
+                {isProfessionalEmailEstimate
+                  ? 'Professional email service only. Monthly plan prices include 15% VAT; final service details are confirmed in the written quotation.'
+                  : 'Includes 15% VAT. Hosting, when selected, is billed with the support plan; annual plans include two months free. Third-party products, licences and substantial integrations may affect the final quote.'}
             </div>
             <Button className="w-full" onClick={handleRecalculate}>
                 <RefreshCw className="mr-2 h-4 w-4" />
@@ -347,12 +426,53 @@ export default function QuotationCalculator({
                               <FormControl><RadioGroupItem value="custom" /></FormControl>
                               <FormLabel className="font-normal">Custom Web App</FormLabel>
                             </FormItem>
+                            <FormItem className="flex items-center space-x-3 space-y-0 rounded-md border p-4 hover:bg-accent hover:text-accent-foreground has-[input:checked]:bg-primary has-[input:checked]:text-primary-foreground transition-colors">
+                              <FormControl><RadioGroupItem value="professional-email" /></FormControl>
+                              <FormLabel className="font-normal">Professional Email (Email Only)</FormLabel>
+                            </FormItem>
                           </RadioGroup>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  {projectType === 'professional-email' ? (
+                    <FormField
+                      control={form.control}
+                      name="emailPlan"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3">
+                          <FormLabel>2. Professional Email Plan</FormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              value={field.value}
+                              className="grid grid-cols-1 gap-4"
+                            >
+                              {Object.entries(professionalEmailPlans).map(([key, plan]) => (
+                                <FormItem
+                                  key={key}
+                                  className="flex items-start space-x-3 space-y-0 rounded-md border p-4 hover:bg-accent hover:text-accent-foreground has-[input:checked]:bg-primary has-[input:checked]:text-primary-foreground transition-colors"
+                                >
+                                  <FormControl>
+                                    <RadioGroupItem value={key} />
+                                  </FormControl>
+                                  <div className="space-y-1">
+                                    <FormLabel className="font-medium">
+                                      {plan.label} — {zarFormatter.format(plan.monthlyPrice)}/month
+                                    </FormLabel>
+                                    <FormDescription>{plan.description}</FormDescription>
+                                    <FormDescription>Price includes 15% VAT.</FormDescription>
+                                  </div>
+                                </FormItem>
+                              ))}
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
                   <FormItem>
                     <FormLabel>2. Hosting (Required for recurring support)</FormLabel>
                     <div className="space-y-3">
@@ -396,6 +516,7 @@ export default function QuotationCalculator({
                         />
                     </div>
                   </FormItem>
+                  )}
                 </>
               ) : (
                 <>
@@ -455,6 +576,8 @@ export default function QuotationCalculator({
                 </>
               )}
 
+              {projectType !== 'professional-email' && (
+              <>
               <FormField
                 control={form.control}
                 name="timeline"
@@ -515,6 +638,8 @@ export default function QuotationCalculator({
                   </FormItem>
                 )}
               />
+              </>
+              )}
 
               <Button type="submit" className="w-full !mt-10">
                 Get My Estimate
