@@ -80,6 +80,7 @@ export default async function ServiceDetailPage({
             {service.id === 'business-consulting' ? (
               <>
                 <BusinessRegistrationServices />
+                <QuotationCalculator serviceName="Business Consulting" />
                 <div id="request-quotation">
                   <OfficeSupplyQuoteForm
                     serviceName="Business Consulting & Registration"
