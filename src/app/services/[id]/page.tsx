@@ -77,12 +77,12 @@ export default async function ServiceDetailPage({
               </CardContent>
             </Card>
 
-            {service.id === 'business-registration-compliance' ? (
+            {service.id === 'business-consulting' ? (
               <>
                 <BusinessRegistrationServices />
                 <div id="request-quotation">
                   <OfficeSupplyQuoteForm
-                    serviceName="Business Registration & Compliance"
+                    serviceName="Business Consulting & Registration"
                     initialDetails="Please tell us which service you need (company registration, SARS eFiling, TCS, CSD, director amendment, COIDA or annual CIPC return) and briefly describe your requirements."
                   />
                 </div>

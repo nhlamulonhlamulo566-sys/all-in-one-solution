@@ -36,24 +36,13 @@ export const services: Service[] = [
   },
   {
     id: 'business-consulting',
-    name: 'Business Consulting',
+    name: 'Business Consulting & Registration',
     category: 'Business',
     icon: 'Briefcase',
     shortDescription:
-      'Providing expert advice to help you navigate challenges and seize growth opportunities.',
+      'One place for practical business guidance, company registration and everyday South African compliance assistance.',
     longDescription:
-      'Navigate the complexities of the modern business landscape with our expert Business Consulting services. We partner with you to identify strategic opportunities, overcome challenges, and drive sustainable growth. Our experienced consultants offer tailored advice in areas such as market analysis, operational efficiency, financial planning, and organizational strategy. We provide actionable insights and a clear roadmap to help you achieve your long-term business goals.',
-    imageId: 'consulting-service',
-  },
-  {
-    id: 'business-registration-compliance',
-    name: 'Business Registration & Compliance',
-    category: 'Business',
-    icon: 'Building2',
-    shortDescription:
-      'Practical assistance with starting a company, director changes, SARS eFiling, tax status, CSD, COIDA and annual returns.',
-    longDescription:
-      'Get practical administrative support for common South African company registration and compliance tasks. Choose help with registering a new company, SARS eFiling profile setup, Tax Compliance Status (TCS), Central Supplier Database (CSD), director amendments (CoR39), COIDA registration, or annual CIPC returns. We explain the steps, check your documents and assist with the relevant online process based on your authorization. Government and statutory decisions remain with the relevant authority; approval and turnaround times are not guaranteed.',
+      'Get practical business guidance and administrative support in one place. We can help you think through business plans, operations and growth, as well as common South African company registration and compliance tasks. Choose assistance with registering a new company, SARS eFiling profile setup, Tax Compliance Status (TCS), Central Supplier Database (CSD), director amendments (CoR39), COIDA registration, or annual CIPC returns. We explain the steps, check your documents and assist with the relevant online process based on your authorization. Government and statutory decisions remain with the relevant authority; approval and turnaround times are not guaranteed.',
     imageId: 'consulting-service',
   },
   {
