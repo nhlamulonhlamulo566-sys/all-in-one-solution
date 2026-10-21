@@ -46,6 +46,17 @@ export const services: Service[] = [
     imageId: 'consulting-service',
   },
   {
+    id: 'business-registration-compliance',
+    name: 'Business Registration & Compliance',
+    category: 'Business',
+    icon: 'Building2',
+    shortDescription:
+      'Practical assistance with starting a company, director changes, SARS eFiling, tax status, CSD, COIDA and annual returns.',
+    longDescription:
+      'Get practical administrative support for common South African company registration and compliance tasks. Choose help with registering a new company, SARS eFiling profile setup, Tax Compliance Status (TCS), Central Supplier Database (CSD), director amendments (CoR39), COIDA registration, or annual CIPC returns. We explain the steps, check your documents and assist with the relevant online process based on your authorization. Government and statutory decisions remain with the relevant authority; approval and turnaround times are not guaranteed.',
+    imageId: 'consulting-service',
+  },
+  {
     id: 'it-technician',
     name: 'Information Technology Technician',
     category: 'Technology',

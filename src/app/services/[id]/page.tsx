@@ -10,6 +10,7 @@ import AiFaq from '@/components/ai-faq';
 import { ChevronRight } from 'lucide-react';
 import QuotationCalculator from '@/components/quotation-calculator';
 import OfficeSupplyQuoteForm from '@/components/office-supply-quote-form';
+import BusinessRegistrationServices from '@/components/business-registration-services';
 
 export default async function ServiceDetailPage({
   params,
@@ -76,7 +77,17 @@ export default async function ServiceDetailPage({
               </CardContent>
             </Card>
 
-            {service.id === 'office-supply' ? (
+            {service.id === 'business-registration-compliance' ? (
+              <>
+                <BusinessRegistrationServices />
+                <div id="request-quotation">
+                  <OfficeSupplyQuoteForm
+                    serviceName="Business Registration & Compliance"
+                    initialDetails="Please tell us which service you need (company registration, SARS eFiling, TCS, CSD, director amendment, COIDA or annual CIPC return) and briefly describe your requirements."
+                  />
+                </div>
+              </>
+            ) : service.id === 'office-supply' ? (
               <div id="request-quotation">
                 <OfficeSupplyQuoteForm serviceName="Office Supplies" />
               </div>

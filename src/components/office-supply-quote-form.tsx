@@ -31,8 +31,10 @@ type QuotationRequestValues = z.infer<typeof quotationRequestSchema>;
 
 export default function OfficeSupplyQuoteForm({
   serviceName = 'Office Supplies',
+  initialDetails = '',
 }: {
   serviceName?: string;
+  initialDetails?: string;
 }) {
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<{
@@ -47,7 +49,7 @@ export default function OfficeSupplyQuoteForm({
       email: '',
       phone: '',
       company: '',
-      details: '',
+      details: initialDetails,
     },
   });
 
