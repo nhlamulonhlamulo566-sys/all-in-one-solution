@@ -118,3 +118,67 @@ CREATE TABLE IF NOT EXISTS website_chat_messages (
   CONSTRAINT fk_website_chat_messages_session
     FOREIGN KEY (session_id) REFERENCES website_chat_sessions (session_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS career_vacancies (
+  vacancy_id CHAR(36) NOT NULL,
+  title VARCHAR(160) NOT NULL,
+  department VARCHAR(120) NOT NULL,
+  location VARCHAR(160) NOT NULL,
+  work_type ENUM('Full-time', 'Part-time', 'Contract', 'Temporary', 'Internship')
+    NOT NULL,
+  description TEXT NOT NULL,
+  requirements TEXT NOT NULL,
+  responsibilities TEXT NULL,
+  salary_range VARCHAR(120) NULL,
+  selection_process TEXT NULL,
+  required_documents_json VARCHAR(255) NOT NULL DEFAULT '["cv"]',
+  status ENUM('open', 'closed') NOT NULL DEFAULT 'open',
+  closing_date DATE NULL,
+  created_by_user_id CHAR(36) NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+    ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (vacancy_id),
+  KEY idx_career_vacancies_status_created (status, created_at),
+  CONSTRAINT fk_career_vacancies_creator
+    FOREIGN KEY (created_by_user_id) REFERENCES website_users (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS career_applications (
+  application_id CHAR(36) NOT NULL,
+  vacancy_id CHAR(36) NULL,
+  full_name VARCHAR(160) NOT NULL,
+  email_address VARCHAR(254) NOT NULL,
+  phone_number VARCHAR(40) NOT NULL,
+  location VARCHAR(160) NOT NULL,
+  role_interest VARCHAR(120) NOT NULL,
+  availability VARCHAR(120) NOT NULL,
+  experience_summary TEXT NOT NULL,
+  consent_at DATETIME(3) NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (application_id),
+  KEY idx_career_applications_created (created_at),
+  KEY idx_career_applications_email (email_address),
+  KEY idx_career_applications_vacancy_created (vacancy_id, created_at),
+  CONSTRAINT fk_career_applications_vacancy
+    FOREIGN KEY (vacancy_id) REFERENCES career_vacancies (vacancy_id)
+    ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS career_application_documents (
+  document_id CHAR(36) NOT NULL,
+  application_id CHAR(36) NOT NULL,
+  document_type ENUM(
+    'cv', 'identity', 'qualification', 'drivers_license', 'other'
+  ) NOT NULL,
+  original_name VARCHAR(180) NOT NULL,
+  content_type VARCHAR(100) NOT NULL,
+  file_size INT UNSIGNED NOT NULL,
+  content_base64 LONGTEXT NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (document_id),
+  KEY idx_career_documents_application (application_id),
+  CONSTRAINT fk_career_documents_application
+    FOREIGN KEY (application_id) REFERENCES career_applications (application_id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

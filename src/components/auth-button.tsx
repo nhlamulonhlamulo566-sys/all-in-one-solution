@@ -50,7 +50,9 @@ export default function AuthButton({
           { href: '/admin/announcements', label: 'Announcements' },
           ...(isAdministratorRole(user.role)
             ? [
-                { href: '/admin/content', label: 'Public Page Content' },
+                { href: '/admin/careers', label: 'Career Applications' },
+              { href: '/admin/careers/vacancies', label: 'Manage Vacancies' },
+              { href: '/admin/content', label: 'Public Page Content' },
                 { href: '/admin/users', label: 'Team & Access' },
               ]
             : []),

@@ -128,6 +128,17 @@ export default function Footer() {
                   </a>
                   </div>
               </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground mb-4">
+                  Join Our Team
+                </h3>
+                <Link
+                  href="/careers"
+                  className="text-muted-foreground transition-colors hover:text-primary"
+                >
+                  Careers
+                </Link>
+              </div>
             </div>
         </div>
 

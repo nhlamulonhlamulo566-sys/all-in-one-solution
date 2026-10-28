@@ -18,6 +18,29 @@ KiB combined. Apply migration
 [`database/migrations/006-about-leadership-profiles.sql`](./database/migrations/006-about-leadership-profiles.sql)
 before using profile editing on an existing database.
 
+Career applications and their optional supporting documents are stored in
+MySQL and are visible only to administrators at `/admin/careers`. Run
+[`database/migrations/007-career-applications.sql`](./database/migrations/007-career-applications.sql)
+on an existing database before accepting applications. The public form requires
+a CV and accepts optional PDF or image documents. Identity documents are not
+normally needed at initial application; qualifications and driver's licences
+should only be provided when relevant to the role or specifically requested.
+The database gateway accepts request bodies up to 5 MiB to support these
+validated uploads; each file may be up to 2 MB. The form limits all files
+combined to 3.5 MB because Vercel Functions impose a smaller request-body limit
+than the requested 10 MB. A CV is required; other supporting documents are
+collected only when relevant to the role.
+Administrators can create, edit, publish, close, and delete job listings at
+`/admin/careers/vacancies`. Apply
+[`database/migrations/008-career-vacancies.sql`](./database/migrations/008-career-vacancies.sql)
+after migration 007. A vacancy can specify additional required application
+documents; applicants cannot submit for that vacancy without attaching them.
+Apply
+[`database/migrations/009-career-vacancy-transparency.sql`](./database/migrations/009-career-vacancy-transparency.sql)
+to add responsibilities, pay-range, and selection-process details to new
+listings. CVs are required; collect identity documents only when genuinely
+needed, preferably after shortlisting.
+
 The Instant Quotation Calculator uses fixed, budget-conscious starter estimates
 in South African rand rather than random prices: standard websites R3,500,
 e-commerce R14,000, POS systems R18,000, and custom web apps R25,000 before
@@ -30,10 +53,14 @@ preliminary estimates; confirm scope and the final amount in a written quote.
 
 ### Configure and run
 
-1. For local development, set `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`,
-   `DB_NAME` (normally `allinonesolution`), and the trusted MySQL certificate
-   in `DB_SSL_CA` in `.env.local`. Multiline CA content may use literal `\n`
-   sequences. Vercel uses the HTTPS database gateway described below.
+1. For local development with a direct MySQL connection, set `DB_HOST`,
+   `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (normally
+   `allinonesolution`), and the trusted MySQL certificate in `DB_SSL_CA` in
+   `.env.local`. Multiline CA content may use literal `\n` sequences. To use
+   the HTTPS database gateway instead, configure both `DB_GATEWAY_URL` and
+   `DB_GATEWAY_TOKEN`; the gateway takes precedence over direct connection
+   settings. Vercel Production requires the gateway configuration described
+   below. Local gateway use accesses the database behind that gateway.
    `GEMINI_API_KEY` is required for the AI FAQ endpoint. Keep all values
    server-side and out of source control and `NEXT_PUBLIC_` variables.
 2. Use [`database/schema.sql`](./database/schema.sql) as the database schema
@@ -43,8 +70,23 @@ preliminary estimates; confirm scope and the final amount in a written quote.
    and
    [`database/migrations/006-about-leadership-profiles.sql`](./database/migrations/006-about-leadership-profiles.sql)
    to existing databases before using the editable About page content and
-   leadership profiles.
+   leadership profiles. Apply
+   [`database/migrations/007-career-applications.sql`](./database/migrations/007-career-applications.sql)
+   before accepting career applications. Apply
+   [`database/migrations/008-career-vacancies.sql`](./database/migrations/008-career-vacancies.sql)
+   and
+   [`database/migrations/009-career-vacancy-transparency.sql`](./database/migrations/009-career-vacancy-transparency.sql)
+   before publishing or displaying vacancies.
 3. Start the development server with `npm run dev`.
+
+### Install as a PWA
+
+The production app includes a web app manifest, install prompt on supported
+browsers, and an offline page. Deploy it over HTTPS (or use localhost) to make
+it eligible for installation. Browsers that do not expose an install prompt
+can use their own browser menu to add the site to the home screen. The service
+worker only caches versioned static assets and does not cache account pages or
+API responses.
 
 ### Provisioning an isolated database for another app
 
@@ -101,13 +143,19 @@ namespace. Add
 Only SQL statements extracted from the app's literal query strings are
 accepted by the gateway. Do not expose its token to browser code.
 
-The gateway uses TLS between the browser-independent app server and Cloudflare,
-and Cloudflare Tunnel encrypts traffic to the MySQL host. Set `DB_SSL_CA` to the
-trusted CA certificate for the MySQL server (use `\n` for embedded newlines).
-The gateway and direct database connections refuse to start without that CA
-and always validate the server certificate. Do not disable certificate
-validation to work around a TLS error; install the correct CA certificate
-instead.
+When the gateway and MariaDB run on the same Linux host, prefer a Unix socket
+for their local connection. Set `DB_SOCKET_PATH` to the MariaDB socket path
+(commonly `/run/mysqld/mysqld.sock`); `DB_HOST`, `DB_PORT`, and `DB_SSL_CA` are
+not needed for that connection. Use a MariaDB account restricted to
+`localhost` and the application database. Direct application connections also
+support this socket option.
+
+For TCP database connections, the gateway and direct application connections
+require `DB_SSL_CA` containing the trusted MySQL server CA certificate (use
+`\n` for embedded newlines) and always verify the server certificate. Do not
+disable certificate validation to work around a TLS error; install the correct
+CA certificate instead. Cloudflare Tunnel encrypts traffic between the gateway
+host and Cloudflare.
 
 ### MySQL accounts and staff roles
 

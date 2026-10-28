@@ -17,6 +17,7 @@ import Logo from './logo';
 import { Separator } from './ui/separator';
 import { useUser } from '@/auth/provider';
 import { isAdministratorRole, isStaffRole } from '@/lib/roles';
+import PwaInstallButton from './pwa-install-button';
 
 export default function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
@@ -48,6 +49,13 @@ export default function MobileNav() {
               onClick={() => setIsOpen(false)}
             >
               About Us
+            </Link>
+            <Link
+              href="/careers"
+              className="hover:text-primary w-full p-3 rounded-md transition-colors"
+              onClick={() => setIsOpen(false)}
+            >
+              Careers
             </Link>
             <Link
               href="/announcements"
@@ -104,6 +112,20 @@ export default function MobileNav() {
                 {user && isAdministratorRole(user.role) && (
                     <>
                       <Link
+                        href="/admin/careers"
+                        className="hover:text-primary w-full p-3 rounded-md transition-colors"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Career Applications
+                      </Link>
+                      <Link
+                        href="/admin/careers/vacancies"
+                        className="hover:text-primary w-full p-3 rounded-md transition-colors"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Manage Vacancies
+                      </Link>
+                      <Link
                         href="/admin/content"
                         className="hover:text-primary w-full p-3 rounded-md transition-colors"
                         onClick={() => setIsOpen(false)}
@@ -125,6 +147,7 @@ export default function MobileNav() {
           <div className="mt-auto pt-4">
              <Separator className="mb-4" />
             <div className="flex w-full flex-col gap-2">
+              <PwaInstallButton className="w-full justify-start" />
               <AuthButton onAction={() => setIsOpen(false)} showStaffLinks={false} />
             </div>
           </div>

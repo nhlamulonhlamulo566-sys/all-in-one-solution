@@ -16,7 +16,8 @@ dotenv.config({ path: join(root, '.env'), override: false });
 const token = process.env.DB_GATEWAY_TOKEN;
 const port = Number(process.env.DB_GATEWAY_PORT || 8787);
 const host = process.env.DB_GATEWAY_HOST || '127.0.0.1';
-const maxBodyBytes = 1024 * 1024;
+const socketPath = process.env.DB_SOCKET_PATH?.trim();
+const maxBodyBytes = 5 * 1024 * 1024;
 
 if (!token || Buffer.byteLength(token) < 32) {
   throw new Error('Set DB_GATEWAY_TOKEN to a random secret of at least 32 characters.');
@@ -25,27 +26,37 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error('DB_GATEWAY_PORT must be a valid TCP port.');
 }
 
-const missingDbConfig = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']
+const missingDbConfig = [
+  ...(!socketPath ? ['DB_HOST'] : []),
+  'DB_USER',
+  'DB_PASSWORD',
+  'DB_NAME',
+]
   .filter((key) => !process.env[key]);
 if (missingDbConfig.length) {
   throw new Error(`Missing database configuration: ${missingDbConfig.join(', ')}`);
 }
-if (!process.env.DB_SSL_CA?.trim()) {
+const databaseCa = process.env.DB_SSL_CA?.trim() ?? '';
+if (!socketPath && !databaseCa) {
   throw new Error(
     'DB_SSL_CA is required. Configure the trusted MySQL server CA certificate; unverified TLS is not allowed.'
   );
 }
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 3306),
+  ...(socketPath
+    ? { socketPath }
+    : {
+        host: process.env.DB_HOST,
+        port: Number(process.env.DB_PORT || 3306),
+        ssl: {
+          ca: databaseCa.replace(/\\n/g, '\n'),
+          rejectUnauthorized: true,
+        },
+      }),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  ssl: {
-    ca: process.env.DB_SSL_CA.replace(/\\n/g, '\n'),
-    rejectUnauthorized: true,
-  },
   charset: 'utf8mb4',
   waitForConnections: true,
   connectionLimit: 5,

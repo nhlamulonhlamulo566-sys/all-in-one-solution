@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import Logo from './logo';
 import AuthButton from './auth-button';
 import MobileNav from './mobile-nav';
+import PwaInstallButton from './pwa-install-button';
 
 export default function Header() {
   return (
@@ -19,11 +20,15 @@ export default function Header() {
             <Link href="/about">About Us</Link>
           </Button>
           <Button asChild variant="ghost">
+            <Link href="/careers">Careers</Link>
+          </Button>
+          <Button asChild variant="ghost">
             <Link href="/announcements">Announcements</Link>
           </Button>
           <Button asChild variant="ghost">
             <Link href="/contact">Contact Us</Link>
           </Button>
+          <PwaInstallButton />
           <div className="flex items-center gap-2 pl-2 ml-2 border-l">
             <AuthButton compact />
           </div>

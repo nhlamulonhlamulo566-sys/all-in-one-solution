@@ -7,6 +7,7 @@ import { Inter as FontSans } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { AuthProvider } from '@/auth/provider';
 import SiteLiveChat from '@/components/site-live-chat';
+import PwaRegister from '@/components/pwa-register';
 
 const fontSans = FontSans({
   subsets: ['latin'],
@@ -17,11 +18,22 @@ export const metadata: Metadata = {
   title: 'All In One Solution | Integrated Business Services',
   description:
     'Your one-stop partner for comprehensive business solutions, from web development and IT support to business consulting and office supplies.',
+  applicationName: 'All In One Solution',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'All In One Solution',
+  },
+  icons: {
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  themeColor: '#4a82b8',
 };
 
 export default function RootLayout({
@@ -38,6 +50,7 @@ export default function RootLayout({
           fontSans.variable
         )}
       >
+        <PwaRegister />
         <AuthProvider>
           <div className="flex min-h-screen flex-col">
             <Header />

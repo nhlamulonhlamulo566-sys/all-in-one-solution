@@ -12,9 +12,9 @@ let mysqlPool: MySqlPool | undefined;
 function getDirectPool() {
   if (directPool) return directPool;
   const { DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME } = process.env;
+  const socketPath = process.env.DB_SOCKET_PATH?.trim();
   const missing = Object.entries({
-    DB_HOST,
-    DB_PORT,
+    ...(!socketPath ? { DB_HOST, DB_PORT } : {}),
     DB_USER,
     DB_PASSWORD,
     DB_NAME,
@@ -25,23 +25,27 @@ function getDirectPool() {
   if (missing.length) {
     throw new Error(`Missing database configuration: ${missing.join(', ')}`);
   }
-  const databaseCa = process.env.DB_SSL_CA?.trim();
-  if (!databaseCa) {
+  const databaseCa = process.env.DB_SSL_CA?.trim() ?? '';
+  if (!socketPath && !databaseCa) {
     throw new Error(
       'DB_SSL_CA is required for direct MySQL connections; unverified TLS is not allowed.'
     );
   }
 
   directPool = createPool({
-    host: DB_HOST,
-    port: Number(DB_PORT),
+    ...(socketPath
+      ? { socketPath }
+      : {
+          host: DB_HOST,
+          port: Number(DB_PORT),
+          ssl: {
+            ca: databaseCa.replace(/\\n/g, '\n'),
+            rejectUnauthorized: true,
+          },
+        }),
     user: DB_USER,
     password: DB_PASSWORD,
     database: DB_NAME,
-    ssl: {
-      ca: databaseCa.replace(/\\n/g, '\n'),
-      rejectUnauthorized: true,
-    },
     charset: 'utf8mb4',
     waitForConnections: true,
     connectionLimit: 10,
