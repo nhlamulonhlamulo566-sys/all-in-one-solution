@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -122,6 +123,12 @@ export default function LoginPage() {
               </Button>
             </form>
           </Form>
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Need a staff account?{' '}
+            <Link href="/signup" className="text-primary underline">
+              Create an account
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

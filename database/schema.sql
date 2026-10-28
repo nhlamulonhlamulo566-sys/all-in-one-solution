@@ -29,7 +29,11 @@ CREATE TABLE IF NOT EXISTS customer_requests (
 CREATE TABLE IF NOT EXISTS website_users (
   user_id CHAR(36) NOT NULL,
   full_name VARCHAR(160) NOT NULL,
+  surname VARCHAR(80) NULL,
   email_address VARCHAR(254) NOT NULL,
+  contact_number VARCHAR(25) NULL,
+  work_number VARCHAR(25) NULL,
+  persal_number VARCHAR(32) NULL,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('staff', 'admin', 'super_admin') NOT NULL DEFAULT 'staff',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -37,6 +41,7 @@ CREATE TABLE IF NOT EXISTS website_users (
     ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id),
   UNIQUE KEY uq_website_users_email (email_address),
+  UNIQUE KEY uq_website_users_persal (persal_number),
   KEY idx_website_users_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

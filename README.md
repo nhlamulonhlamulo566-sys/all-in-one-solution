@@ -77,7 +77,10 @@ preliminary estimates; confirm scope and the final amount in a written quote.
    and
    [`database/migrations/009-career-vacancy-transparency.sql`](./database/migrations/009-career-vacancy-transparency.sql)
    before publishing or displaying vacancies.
-3. Start the development server with `npm run dev`.
+3. Apply
+   [`database/migrations/010-staff-account-profile.sql`](./database/migrations/010-staff-account-profile.sql)
+   before enabling account registration on an existing database.
+4. Start the development server with `npm run dev`.
 
 ### Install as a PWA
 
@@ -159,12 +162,16 @@ host and Cloudflare.
 
 ### MySQL accounts and staff roles
 
-Public registration is disabled. Visitors can use public site features,
-including contact requests, published announcements, and visitor chat, without
-signing in. Only staff, administrators, and super administrators can log in at
-`/login`. Passwords are hashed with Node.js `scrypt`; the browser receives only
-an `HttpOnly`, `SameSite=Lax` session cookie, while MySQL stores a hash of the
-opaque session token. Sign-out revokes the session in MySQL.
+Visitors can register at `/signup` with their name, surname, email, contact
+number, work number, PERSAL number, and matching passwords. Registration
+immediately creates an active `staff` account; it never grants administrator
+privileges. Existing databases must first apply
+[`database/migrations/010-staff-account-profile.sql`](./database/migrations/010-staff-account-profile.sql).
+Visitors can also use public site features, including contact requests,
+published announcements, and visitor chat, without signing in. Passwords are
+hashed with Node.js `scrypt`; the browser receives only an `HttpOnly`,
+`SameSite=Lax` session cookie, while MySQL stores a hash of the opaque session
+token. Sign-out revokes the session in MySQL.
 
 The account roles are `staff`, `admin` (Administrator), and `super_admin`
 (Super administrator). Administrators can use staff tools and create staff
