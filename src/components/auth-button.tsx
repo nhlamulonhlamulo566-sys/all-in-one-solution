@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Button } from './ui/button';
 import { useAuth, useUser } from '@/auth/provider';
 import { useRouter } from 'next/navigation';
+import { useRef } from 'react';
 import { Skeleton } from './ui/skeleton';
 import { isAdministratorRole, isStaffRole } from '@/lib/roles';
 import { ChevronDown } from 'lucide-react';
@@ -20,6 +21,7 @@ export default function AuthButton({
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const staffToolsMenuRef = useRef<HTMLDetailsElement>(null);
 
   const handleLogout = async () => {
     try {
@@ -63,7 +65,7 @@ export default function AuthButton({
       return (
         <>
           {showStaffLinks && adminLinks.length > 0 && (
-            <details className="group relative">
+            <details ref={staffToolsMenuRef} className="group relative">
               <summary className="flex h-10 cursor-pointer list-none items-center rounded-md px-4 text-sm font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
                 Staff tools
                 <ChevronDown aria-hidden="true" className="ml-2 h-4 w-4" />
@@ -76,7 +78,10 @@ export default function AuthButton({
                   <Link
                     key={href}
                     href={href}
-                    onClick={onAction}
+                    onClick={() => {
+                      staffToolsMenuRef.current?.removeAttribute('open');
+                      onAction?.();
+                    }}
                     className="rounded-sm px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none"
                   >
                     {label}
